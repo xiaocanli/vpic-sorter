@@ -50,3 +50,11 @@ int openmp_sort(char *data, int data_size, int threads, size_t row_size);
 void create_opic_data_type(int row_size);
 void free_opic_data_type();
 double get_value_double(int index, char *row_data);
+
+char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
+        int sort_key_only, int skew_data, int verbose, int write_result,
+        int collect_data, int weak_scale_test, int weak_scale_test_length,
+        int local_sort_threaded, int local_sort_threads_num, int meta_data,
+        int ux_kindex, char *filename, char *group_name, char *filename_sorted,
+        char *filename_attribute, char *filename_meta,
+        unsigned long long *rsize, int load_tracer_meta, int is_recreate);
