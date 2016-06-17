@@ -4,3 +4,4 @@ h5group-sorter
 h5trajectory
 data/
 attribute
+binary_to_hdf5
