@@ -86,7 +86,7 @@ libtraj.a: $(OBJS_TRAJ)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	$(RM) *.o *.a *~ $(MAIN) $(TRAJ)
+	$(RM) *.o *.a *~ $(MAIN) $(TRAJ) $(BH5) $(REDUCE)
 
 depend: $(SRCS)
 	makedepend $(INCLUDES) $^

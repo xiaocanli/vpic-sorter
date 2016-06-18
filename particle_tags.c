@@ -49,6 +49,90 @@ void get_particle_tags(char *filename, int tstep, float ratio_emax,
 }
 
 /******************************************************************************
+ * Open HDF5 file, one group and one dataset
+ ******************************************************************************/
+void open_hdf5_file_group_dset(char *filename, char *groupname,
+        char *dataset_name, hid_t *file_id, hid_t *group_id, hid_t *dset_id)
+{
+    *file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+    *group_id = H5Gopen1(*file_id, groupname);
+    *dset_id = H5Dopen(*group_id, dataset_name, H5P_DEFAULT);
+}
+
+/******************************************************************************
+ * Close HDF5 file, one group and one dataset
+ ******************************************************************************/
+void close_hdf5_file_group_dset(hid_t file_id, hid_t group_id, hid_t dset_id)
+{
+    H5Dclose(dset_id);
+    H5Gclose(group_id);
+    H5Fclose(file_id);
+}
+
+/******************************************************************************
+ * Get HDF5 data size
+ ******************************************************************************/
+void get_hdf5_data_size(char *filename, char *groupname, char *dataset_name,
+        hsize_t *dims_out)
+{
+    hid_t file_id, group_id, dset_id, filespace;
+
+    open_hdf5_file_group_dset(filename, groupname, dataset_name, &file_id,
+            &group_id, &dset_id);
+    filespace = H5Dget_space(dset_id);
+    H5Sget_simple_extent_dims(filespace, dims_out, NULL);
+
+    H5Sclose(filespace);
+    close_hdf5_file_group_dset(file_id, group_id, dset_id);
+}
+
+/******************************************************************************
+ * Get particle tags from the file with filename
+ * Input:
+ *  filename: the HDF5 filename.
+ *  tstep: current time step.
+ *  rank: number of dimension of the data
+ *  particle_select: select 1 particle from # of particles
+ * Output:
+ *  tags: particle tags.
+ ******************************************************************************/
+void get_particle_tags_initial(char *filename, int tstep, int rank,
+        int particle_select, int *tags)
+{
+    double emax;
+    int step_len = get_int_len(tstep);
+    char groupname[step_len+6];
+    hid_t file_id, group_id, dset_id;
+    hid_t filespace, memspace;
+    hsize_t dims_out[rank];
+    hsize_t count[rank], offset_file[rank], stride[rank], block[rank];
+
+    snprintf(groupname, sizeof(groupname), "%s%d", "Step#", tstep);
+
+    open_hdf5_file_group_dset(filename, groupname, "q", &file_id,
+            &group_id, &dset_id);
+    filespace = H5Dget_space(dset_id);
+    H5Sget_simple_extent_dims(filespace, dims_out, NULL);
+
+    offset_file[0] = 0;
+    count[0] = ceil(dims_out[0] / (particle_select + 0.0));
+    stride[0] = particle_select;
+    block[0] = 1;
+
+    memspace = H5Screate_simple(rank, count, NULL);
+    H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset_file, stride, count,
+            block);
+    H5Dread(dset_id, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, tags);
+
+    /* for (int i = 0; i < count[0]; i++) { */
+    /*     printf("%d\n", tags[i]); */
+    /* } */
+    H5Sclose(memspace);
+    H5Sclose(filespace);
+    close_hdf5_file_group_dset(file_id, group_id, dset_id);
+}
+
+/******************************************************************************
  * Get the energy of the most energetic particle.
  *
  * Input:
