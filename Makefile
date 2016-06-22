@@ -61,7 +61,7 @@ traj:	$(TRAJ)
 bh5:	$(BH5)
 	@echo  $(BH5) is successfully compiled!
 
-reduce_tracer:	$(REDUCE)
+reduce:	$(REDUCE)
 	@echo  $(REDUCE) is successfully compiled!
 
 $(MAIN): $(OBJS) 
