@@ -48,7 +48,7 @@ mpirun -np 16 ./reduce_tracer -f $filepath/T.$tstep/${particle}_tracer.h5p \
 -o $filepath/T.$tstep/${particle}_tracer_sorted.h5p \
 -g /Step#$tstep -m $filepath/T.$tstep/grid_metadata_${particle}_tracer.h5p \
 -k $key_index -a attribute --tmin=$tstep_min --tmax=$tstep_max \
---tinterval=$tinterval --filepath=$filepath --species=${particle} -u 6 \
+--tinterval=$tinterval --filepath=$filepath --species=${particle} -w -u 6 \
 --is_recreate=$is_recreate --nsteps=$nsteps
 
 # key_index=12 # sort by particle tag

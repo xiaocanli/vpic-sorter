@@ -22,7 +22,7 @@
 
 void set_filenames(int tstep, char *filepath, char *species, char *filename,
         char *group_name, char *filename_sorted, char *filename_attribute,
-        char *filename_meta);
+        char *filename_meta, char *filename_reduced);
 
 /******************************************************************************
  * Main of the parallel sampling sort
@@ -38,7 +38,7 @@ int main(int argc, char **argv){
     int tmin, tmax, tinterval; // Minimum, maximum time step and time interval
     int multi_tsteps, ux_kindex;
     char *filename, *group_name, *filename_sorted, *filename_attribute;
-    char *filename_meta, *filepath, *species, *filename_traj;
+    char *filename_meta, *filepath, *species, *filename_traj, *filename_reduced;
     char *final_buff;
     float ratio_emax;
     unsigned long long rsize;
@@ -55,6 +55,7 @@ int main(int argc, char **argv){
     filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    filename_reduced = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     species = (char *)malloc(16 * sizeof(char));
     tmin = 0;
@@ -125,11 +126,12 @@ int main(int argc, char **argv){
     tracked_particles = (char *)calloc(particle_per_core * row_size * 2, sizeof(char));
 
     unsigned long long nptl_reduce = 0;
-    for (int i = mtf; i < 2; i++) {
+    for (int i = mtf; i < ntf; i++) {
         tstep = i * tinterval;
         if (mpi_rank == 0) printf("%d\n", tstep);
         set_filenames(tstep, filepath, species, filename, group_name,
-                filename_sorted, filename_attribute, filename_meta);
+                filename_sorted, filename_attribute, filename_meta,
+                filename_reduced);
         final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
                 sort_key_only, skew_data, verbose, write_result,
                 collect_data, weak_scale_test, weak_scale_test_length,
@@ -145,7 +147,7 @@ int main(int argc, char **argv){
         rsize = nptl_reduce;
         write_result_file(mpi_rank, mpi_size, tracked_particles, rsize,
                 row_size, dataset_num, max_type_size, key_index, group_name,
-                filename_sorted, filename_attribute, dname_array, is_recreate);
+                filename_reduced, filename_attribute, dname_array, is_recreate);
     }
     free(tracked_particles);
 
@@ -163,6 +165,7 @@ int main(int argc, char **argv){
     free(filename_attribute);
     free(filename_meta);
     free(filename_traj);
+    free(filename_reduced);
     free(filepath);
     free(species);
     MPI_Finalize();
@@ -174,13 +177,15 @@ int main(int argc, char **argv){
  ******************************************************************************/
 void set_filenames(int tstep, char *filepath, char *species, char *filename,
         char *group_name, char *filename_sorted, char *filename_attribute,
-        char *filename_meta)
+        char *filename_meta, char *filename_reduced)
 {
     snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
     snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/", species, "_tracer.h5p");
     snprintf(filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
             filepath, "/T.", tstep, "/", species, "_tracer_sorted.h5p");
+    snprintf(filename_reduced, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
+            filepath, "/T.", tstep, "/", species, "_tracer_reduced.h5p");
     snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
     snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/grid_metadata_", species, "_tracer.h5p");
