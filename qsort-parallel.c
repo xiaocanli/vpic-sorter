@@ -11,6 +11,7 @@
 #include "vpic_data.h"
 #include "mpi_io.h"
 #include "get_data.h"
+#include "meta_data.h"
 
 int max_type_size;
 int key_index;
