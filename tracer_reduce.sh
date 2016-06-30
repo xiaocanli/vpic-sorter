@@ -28,7 +28,8 @@ export filepath=/net/scratch3/guofan/turbulent-sheet3D-mixing-trinity-Jan29-test
 
 export particle=ion
 tstep_min=0
-tstep_max=14329
+# tstep_max=14329
+tstep_max=770
 tinterval=7
 is_recreate=1 # recreate a file?
 nsteps=1
@@ -49,7 +50,7 @@ mpirun -np 16 ./reduce_tracer -f $filepath/T.$tstep/${particle}_tracer.h5p \
 -g /Step#$tstep -m $filepath/T.$tstep/grid_metadata_${particle}_tracer.h5p \
 -k $key_index -a attribute --tmin=$tstep_min --tmax=$tstep_max \
 --tinterval=$tinterval --filepath=$filepath --species=${particle} -w -u 6 \
---is_recreate=$is_recreate --nsteps=$nsteps
+--is_recreate=$is_recreate --nsteps=$nsteps -r
 
 # key_index=12 # sort by particle tag
 # mpirun -np 16 ./h5group-sorter -f $filepath/T.$tstep/${particle}_tracer.h5p \

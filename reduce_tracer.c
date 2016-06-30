@@ -120,7 +120,33 @@ int main(int argc, char **argv){
         &max_type_size, &key_value_type, dname_array);
     free(package_data);
     qindex = get_dataset_index("q", dname_array, dataset_num);
-    
+
+    /* // Initialize meta data information */
+    /* float cell_sizes[3]; */
+    /* int grid_dims[3]; */
+    /* int dataset_num_meta; */
+    /* int *np_local; */
+    /* long int *np_global; */
+    /* float *x0, *y0, *z0; */
+    /* int dim; */
+    /* dset_name_item *dname_array_meta; */
+    /* hid_t file_id, group_id; */
+    /* hsize_t dims_out_meta[1]; */
+    /* if (mpi_rank == 0) { */
+    /*     dname_array_meta = (dset_name_item *)malloc(MAX_DATASET_NUM * */
+    /*             sizeof(dset_name_item)); */
+    /*     open_file_group_dset(filename_meta, group_name, &file_id, &group_id, */
+    /*             dname_array_meta, dims_out_meta, &dataset_num_meta); */
+    /*     dim = (int)dims_out_meta[0]; */
+    /*     np_local = (int *)malloc(dim * sizeof(int)); */
+    /*     x0 = (float *)malloc(dim * sizeof(float)); */
+    /*     y0 = (float *)malloc(dim * sizeof(float)); */
+    /*     z0 = (float *)malloc(dim * sizeof(float)); */
+    /*     H5Gclose(group_id); */
+    /*     H5Fclose(file_id); */
+    /* } */
+    /* MPI_Bcast(&dim, 1, MPI_INT, 0, MPI_COMM_WORLD); */
+
     int particle_per_core = count / mpi_size;
     // 2 times larger to make sure the data size is enough
     tracked_particles = (char *)calloc(particle_per_core * row_size * 2, sizeof(char));
@@ -133,23 +159,51 @@ int main(int argc, char **argv){
                 filename_sorted, filename_attribute, filename_meta,
                 filename_reduced);
         final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
-                sort_key_only, skew_data, verbose, write_result,
-                collect_data, weak_scale_test, weak_scale_test_length,
-                local_sort_threaded, local_sort_threads_num, meta_data,
-                ux_kindex, filename, group_name, filename_sorted,
-                filename_attribute, filename_meta, &rsize,
-                load_tracer_meta, is_recreate);
+                sort_key_only, skew_data, verbose, write_result, collect_data,
+                weak_scale_test, weak_scale_test_length, local_sort_threaded,
+                local_sort_threads_num, meta_data, ux_kindex, filename,
+                group_name, filename_sorted, filename_attribute, filename_meta,
+                &rsize, load_tracer_meta, is_recreate);
         get_reduced_particle_info(final_buff, qindex, row_size, rsize, tags,
                 count, &nptl_reduce, tracked_particles);
         if(collect_data == 1) {
             free(final_buff);
         }
-        rsize = nptl_reduce;
-        write_result_file(mpi_rank, mpi_size, tracked_particles, rsize,
+        write_result_file(mpi_rank, mpi_size, tracked_particles, nptl_reduce,
                 row_size, dataset_num, max_type_size, key_index, group_name,
                 filename_reduced, filename_attribute, dname_array, is_recreate);
+
+/*         /1* Read the data and broadcast to all MPI processes *1/ */
+/*         if (mpi_rank == 0) { */
+/*             open_file_group_dset(filename_meta, group_name, &file_id, &group_id, */
+/*                     dname_array_meta, dims_out_meta, &dataset_num_meta); */
+/*             read_vpic_meta_data_h5(dataset_num_meta, dims_out_meta, */
+/*                     dname_array_meta, cell_sizes, grid_dims, np_local, x0, y0, z0); */
+/*             H5Gclose(group_id); */
+/*             H5Fclose(file_id); */
+/*         } */
+/*         if (mpi_rank == 0) { */
+/*             for (int j = 0; j < dim; j++) { */
+/*                 printf("%d\n", np_local[j]); */
+/*             } */
+/*         } */
+/*         MPI_Gather(&nptl_reduce, 1, MPI_INT, np_local, 1, MPI_INT, 0, */
+/*                 MPI_COMM_WORLD); */
+/*         if (mpi_rank == 0) { */
+/*             for (int j = 0; j < dim; j++) { */
+/*                 printf("%d\n", np_local[j]); */
+/*             } */
+/*         } */
     }
     free(tracked_particles);
+
+    /* if (mpi_rank == 0) { */
+    /*     free(np_local); */
+    /*     free(x0); */
+    /*     free(y0); */
+    /*     free(z0); */
+    /*     free(dname_array_meta); */
+    /* } */
 
     MPI_Barrier(MPI_COMM_WORLD);
     t1 = MPI_Wtime();
