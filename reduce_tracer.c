@@ -42,7 +42,7 @@ int main(int argc, char **argv){
     char *final_buff;
     float ratio_emax;
     unsigned long long rsize;
-    int nptl_traj, tracking_traj, is_recreate, nsteps;
+    int nptl_traj, tracking_traj, is_recreate, nsteps, reduced_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
@@ -63,6 +63,7 @@ int main(int argc, char **argv){
     tinterval = 1;
     is_recreate = 0; // Don't recreate a HDF5 file when it exists
     nsteps = 1;
+    reduced_tracer = 0;
 
     t0 = MPI_Wtime();
     is_help = get_configuration(argc, argv, mpi_rank, &key_index,
@@ -73,7 +74,7 @@ int main(int argc, char **argv){
             filename_meta, filepath, species, &tmax, &tmin, &tinterval,
             &multi_tsteps, &ux_kindex, filename_traj, &nptl_traj,
             &ratio_emax, &tracking_traj, &load_tracer_meta, &is_recreate,
-            &nsteps);
+            &nsteps, &reduced_tracer);
 
     /* when -h flag is set to seek help of how to use this program */
     if (is_help) {

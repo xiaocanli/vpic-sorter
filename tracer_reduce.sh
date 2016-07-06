@@ -28,8 +28,8 @@ export filepath=/net/scratch3/guofan/turbulent-sheet3D-mixing-trinity-Jan29-test
 
 export particle=ion
 tstep_min=0
-# tstep_max=14329
-tstep_max=770
+tstep_max=14329
+# tstep_max=14
 tinterval=7
 is_recreate=1 # recreate a file?
 nsteps=1
