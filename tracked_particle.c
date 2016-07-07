@@ -78,6 +78,20 @@ void get_reduced_particle_info(char *package_data, int qindex, int row_size,
                 qvalue_tracked = tags[++iptl];
             }
             (*nptl_reduce)++;
+        } else if (qvalue > qvalue_tracked) {
+            while (qvalue_tracked < qvalue && iptl < max_num_ptl) {
+                qvalue_tracked = tags[++iptl];
+            }
+            if (qvalue_tracked == qvalue) {
+                memcpy(tracked_particles + (*nptl_reduce) * row_size,
+                        package_data + i*row_size, row_size);
+                if (iptl >= max_num_ptl-1) {
+                    break;
+                } else {
+                    qvalue_tracked = tags[++iptl];
+                }
+                (*nptl_reduce)++;
+            }
         }
     }
 }
