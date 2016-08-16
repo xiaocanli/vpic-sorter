@@ -151,7 +151,7 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
                 *nsteps = atoi(optarg);
                 break;
             case 9:
-                *reduced_tracer = 1;
+                *reduced_tracer = atoi(optarg);
                 break;
             case 'r':
                 *load_tracer_meta = 1;
