@@ -42,6 +42,19 @@ void get_tracked_particle_info(char *package_data, int qindex, int row_size,
             } else {
                 qvalue_tracked = tags[++iptl];
             }
+        } else if (qvalue > qvalue_tracked) {
+            while (qvalue_tracked < qvalue && iptl < num_ptl) {
+                qvalue_tracked = tags[++iptl];
+            }
+            if (qvalue_tracked == qvalue) {
+                memcpy(tracked_particles + (iptl * ntf + ct) * row_size,
+                        package_data + i*row_size, row_size);
+                if (iptl >= num_ptl-1) {
+                    break;
+                } else {
+                    qvalue_tracked = tags[++iptl];
+                }
+            }
         }
     }
 }
