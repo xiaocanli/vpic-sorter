@@ -20,7 +20,8 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
         char *filename_attribute, char *filename_meta, char *filepath,
         char *species, int *tmax, int *tmin, int *tinterval, int *multi_tsteps,
         int *ux_kindex, char *filename_traj, int *nptl_traj, float *ratio_emax,
-        int *tracking_traj, int *load_tracer_meta, int *is_recreate, int *nsteps)
+        int *tracking_traj, int *load_tracer_meta, int *is_recreate, int *nsteps,
+        int *reduced_tracer)
 {
     int c;
     static const char *options="f:o:a:g:m:k:hsvewl:t:c:b:i:pu:qr";
@@ -36,6 +37,7 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
         {"tmin", required_argument, 0, 6},
         {"is_recreate", required_argument, 0, 7},
         {"nsteps", required_argument, 0, 8},
+        {"reduced_tracer", required_argument, 0, 9},
         {"load_tracer_meta", required_argument, 0, 'r'},
         {0, 0, 0, 0},
     };
@@ -61,8 +63,9 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
     *ratio_emax = 1;
     *tracking_traj = 0;
     *load_tracer_meta = 0;
-    *is_recreate = 0; // Do not recreate a HDF5 file when it exists
-    *nsteps = 1;      // # steps are saved in each time interval
+    *is_recreate = 0;    // Do not recreate a HDF5 file when it exists
+    *nsteps = 1;         // # steps are saved in each time interval
+    *reduced_tracer = 0; // original tracer
 
     /* while ((c = getopt (argc, argv, options)) != -1){ */
     while ((c = getopt_long (argc, argv, options, long_options, &option_index)) != -1){
@@ -147,6 +150,9 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
             case 8:
                 *nsteps = atoi(optarg);
                 break;
+            case 9:
+                *reduced_tracer = atoi(optarg);
+                break;
             case 'r':
                 *load_tracer_meta = 1;
                 break;
@@ -200,6 +206,7 @@ void print_help(){
                --ratio_emax ratio of Emax of all particles to that of tracked ones \n\
                --is_recreate whether to recreate a HDF5 file \n\
                --nsteps # of steps are save in each time interval \n\
+               --reduced_tracer whether to use reduced tracer \n\
                -e only sort the key  \n\
                -v verbose  \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";

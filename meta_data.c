@@ -27,14 +27,14 @@ void read_data_serial_h5(hid_t dset_id, hsize_t my_offset, hsize_t my_data_size,
 {
     hid_t   dataspace, memspace, typeid;
     int     rank;
-    hid_t   plist2_id;	
+    hid_t   plist2_id;
 
     //Create the memory space & hyperslab for each process
     dataspace = H5Dget_space(dset_id);
     rank = H5Sget_simple_extent_ndims(dataspace);
     memspace =  H5Screate_simple(rank, &my_data_size, NULL);
     H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, &my_offset, NULL,
-            &my_data_size, NULL);	
+            &my_data_size, NULL);
 
     plist2_id = H5P_DEFAULT;
     typeid = H5Dget_type(dset_id);
@@ -84,7 +84,7 @@ void open_file_group_dset(char *fname, char *gname, hid_t *file_id,
         hid_t *group_id, dset_name_item *dname_array, hsize_t *dims_out,
         int *dataset_num)
 {
-    int is_all_dset, max_type_size, key_index;
+    int is_all_dset, max_type_size, key_index, np_local_index;
     hid_t dataspace;
     *file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
     *group_id = H5Gopen(*file_id, gname, H5P_DEFAULT);
@@ -93,7 +93,8 @@ void open_file_group_dset(char *fname, char *gname, hid_t *file_id,
     key_index = 0;
     open_dataset_h5(*group_id, is_all_dset, key_index, dname_array, dataset_num,
             &max_type_size);
-    dataspace = H5Dget_space(dname_array[0].did);
+    np_local_index = get_dataset_index("np_local", dname_array, *dataset_num);
+    dataspace = H5Dget_space(dname_array[np_local_index].did);
     H5Sget_simple_extent_dims(dataspace, dims_out, NULL);
     H5Sclose(dataspace);
 }
@@ -172,7 +173,6 @@ void calc_particle_positions(int mpi_rank, hsize_t my_offset, int row_size,
     dset_name_item *dname_array_meta;
     int j, xindex, yindex, zindex, icell_index;
     hsize_t i;
-
     hid_t file_id, group_id;
     hsize_t dims_out[1];
 

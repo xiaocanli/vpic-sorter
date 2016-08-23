@@ -11,6 +11,7 @@
 #include "vpic_data.h"
 #include "mpi_io.h"
 #include "get_data.h"
+#include "meta_data.h"
 
 int max_type_size;
 int key_index;
@@ -943,4 +944,67 @@ void create_opic_data_type(int row_size)
 void free_opic_data_type()
 {
     MPI_Type_free(&OPIC_DATA_TYPE);
+}
+
+/******************************************************************************
+ * Read the particle data and sort the data using one key. This is only for
+ * a single time step.
+ ******************************************************************************/
+char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
+        int sort_key_only, int skew_data, int verbose, int write_result,
+        int collect_data, int weak_scale_test, int weak_scale_test_length,
+        int local_sort_threaded, int local_sort_threads_num, int meta_data,
+        int ux_kindex, char *filename, char *group_name, char *filename_sorted,
+        char *filename_attribute, char *filename_meta,
+        unsigned long long *rsize, int load_tracer_meta, int is_recreate) {
+    int max_type_size, dataset_num, key_value_type, row_size;
+    hsize_t my_data_size, rest_size, my_offset;
+    char *package_data, *final_buff;
+    dset_name_item *dname_array;
+    dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
+    package_data = get_vpic_data_h5(mpi_rank, mpi_size, filename, group_name,
+            weak_scale_test, weak_scale_test_length, sort_key_only, key_index,
+            &row_size, &my_data_size, &rest_size, &dataset_num, &max_type_size,
+            &key_value_type, dname_array, &my_offset);
+
+    /* Set the variables for retrieving the data with actual datatypes. */
+    set_variable_data(max_type_size, key_index, dataset_num, key_value_type,
+            ux_kindex);
+
+    /* We have to use the meta data to calculate the particle position */
+    /* But when using the binary output, the position is already calculated, */
+    /* so we don't have to load the meta data. */
+    if (load_tracer_meta) {
+        calc_particle_positions(mpi_rank, my_offset, row_size, max_type_size,
+                my_data_size, filename_meta, group_name, dname_array,
+                dataset_num, package_data);
+    }
+
+    /* master:  also do slave's job. In addition, it is responsible for samples and pivots */
+    /* slave:   (1) sorts. (2) samples (3) sends sample to master (4) receives pivots */
+    /*          (5) sends/receives data to/from other processes based on pivots */
+    /*          (6) sorts data again   (7) writes data to its location */
+    create_opic_data_type(row_size);
+    if (mpi_rank==0){
+        printf("Start master of parallel sorting ! \n");
+        final_buff = master(mpi_rank, mpi_size, package_data, my_data_size,
+                rest_size, row_size, max_type_size, key_index, dataset_num,
+                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
+                skew_data, collect_data, write_result, group_name,
+                filename_sorted, filename_attribute, dname_array, rsize,
+                is_recreate);
+    }else{
+        final_buff = slave(mpi_rank, mpi_size, package_data, my_data_size,
+                rest_size, row_size, max_type_size, key_index, dataset_num,
+                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
+                skew_data, collect_data, write_result, group_name,
+                filename_sorted, filename_attribute, dname_array, rsize,
+                is_recreate);
+    }
+
+    free_opic_data_type();
+
+    free(dname_array);
+    free(package_data);
+    return final_buff;
 }

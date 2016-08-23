@@ -21,6 +21,8 @@ SRCS_PTRAJ = particle_trajectory.c $(SRCS_TRAJ)
 
 SRCS_BH5 = binary_to_hdf5.c
 
+SRCS_REDUCE = reduce_tracer.c
+
 # define the C object files 
 #
 # This uses Suffix Replacement within a macro:
@@ -36,16 +38,18 @@ OBJS_TRAJ = $(SRCS_TRAJ:.c=.o)
 OBJS_PTRAJ = $(SRCS_PTRAJ:.c=.o)
 
 OBJS_BH5 = $(SRCS_BH5:.c=.o)
+OBJS_REDUCE = $(SRCS_REDUCE:.c=.o)
 
 # define the executable file 
 MAIN = h5group-sorter
 TRAJ = h5trajectory
 BH5  = binary_to_hdf5
+REDUCE = reduce_tracer
 
 #
 .PHONY: depend clean
 
-all:	libh5sort.a libtraj.a $(MAIN) $(TRAJ) $(BH5)
+all:	libh5sort.a libtraj.a $(MAIN) $(TRAJ) $(BH5) $(REDUCE)
 	@echo  Programs are successfully compiled!
 
 main:	$(MAIN)
@@ -57,6 +61,9 @@ traj:	$(TRAJ)
 bh5:	$(BH5)
 	@echo  $(BH5) is successfully compiled!
 
+reduce:	$(REDUCE)
+	@echo  $(REDUCE) is successfully compiled!
+
 $(MAIN): $(OBJS) 
 	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS) -ltraj
 
@@ -65,6 +72,9 @@ $(TRAJ): $(OBJS_PTRAJ)
 
 $(BH5): $(OBJS_BH5) 
 	$(CC) $(CFLAGS) $(INCLUDES) -o $(BH5) $(OBJS_BH5) $(LFLAGS) $(LIBS) -lh5sort -ltraj
+
+$(REDUCE): $(OBJS_REDUCE) 
+	$(CC) $(CFLAGS) $(INCLUDES) -o $(REDUCE) $(OBJS_REDUCE) $(LFLAGS) $(LIBS) -lh5sort -ltraj
 
 libh5sort.a: $(OBJS_H5GROUP)
 	ar rc $@ $^ && ranlib $@
@@ -76,7 +86,7 @@ libtraj.a: $(OBJS_TRAJ)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	$(RM) *.o *.a *~ $(MAIN) $(TRAJ)
+	$(RM) *.o *.a *~ $(MAIN) $(TRAJ) $(BH5) $(REDUCE)
 
 depend: $(SRCS)
 	makedepend $(INCLUDES) $^

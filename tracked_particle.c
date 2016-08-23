@@ -42,6 +42,69 @@ void get_tracked_particle_info(char *package_data, int qindex, int row_size,
             } else {
                 qvalue_tracked = tags[++iptl];
             }
+        } else if (qvalue > qvalue_tracked) {
+            while (qvalue_tracked < qvalue && iptl < num_ptl) {
+                qvalue_tracked = tags[++iptl];
+            }
+            if (qvalue_tracked == qvalue) {
+                memcpy(tracked_particles + (iptl * ntf + ct) * row_size,
+                        package_data + i*row_size, row_size);
+                if (iptl >= num_ptl-1) {
+                    break;
+                } else {
+                    qvalue_tracked = tags[++iptl];
+                }
+            }
+        }
+    }
+}
+
+/******************************************************************************
+ * Get reduced particles information.
+ ******************************************************************************/
+void get_reduced_particle_info(char *package_data, int qindex, int row_size,
+        hsize_t my_data_size, int *tags, int max_num_ptl,
+        unsigned long long *nptl_reduce, char *tracked_particles)
+{
+    hsize_t i;
+    int qvalue, qvalue_tracked, iptl;
+    /* Make sure tracked qvalue is not smaller than the 1st qvalue in the data */
+    qvalue = getInt32Value(qindex, package_data);
+    iptl = 0;
+    while (tags[iptl] < qvalue && iptl < max_num_ptl) {
+        iptl++;
+    }
+    if (iptl < max_num_ptl) {
+        qvalue_tracked = tags[iptl];
+    } else {
+        qvalue_tracked = -1;
+    }
+    *nptl_reduce = 0;
+    for (i = 0; i < my_data_size; i++) {
+        qvalue = getInt32Value(qindex, package_data + i*row_size);
+        if (qvalue == qvalue_tracked) {
+            memcpy(tracked_particles + (*nptl_reduce) * row_size,
+                    package_data + i*row_size, row_size);
+            if (iptl >= max_num_ptl-1) {
+                break;
+            } else {
+                qvalue_tracked = tags[++iptl];
+            }
+            (*nptl_reduce)++;
+        } else if (qvalue > qvalue_tracked) {
+            while (qvalue_tracked < qvalue && iptl < max_num_ptl) {
+                qvalue_tracked = tags[++iptl];
+            }
+            if (qvalue_tracked == qvalue) {
+                memcpy(tracked_particles + (*nptl_reduce) * row_size,
+                        package_data + i*row_size, row_size);
+                if (iptl >= max_num_ptl-1) {
+                    break;
+                } else {
+                    qvalue_tracked = tags[++iptl];
+                }
+                (*nptl_reduce)++;
+            }
         }
     }
 }

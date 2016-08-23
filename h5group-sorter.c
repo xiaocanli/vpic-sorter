@@ -22,16 +22,12 @@
 #include "tracked_particle.h"
 #include "particle_tags.h"
 
-char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
-        int sort_key_only, int skew_data, int verbose, int write_result,
-        int collect_data, int weak_scale_test, int weak_scale_test_length,
-        int local_sort_threaded, int local_sort_threads_num, int meta_data,
-        int ux_kindex, char *filename, char *group_name, char *filename_sorted,
-        char *filename_attribute, char *filename_meta,
-        unsigned long long *rsize, int load_tracer_meta, int is_recreate);
 void set_filenames(int tstep, char *filepath, char *species, char *filename,
         char *group_name, char *filename_sorted, char *filename_attribute,
         char *filename_meta);
+void set_filenames_reduced(int tstep, char *filepath, char *species,
+        char *filename, char *group_name, char *filename_sorted,
+        char *filename_attribute, char *filename_meta);
 
 /******************************************************************************
  * Main of the parallel sampling sort
@@ -51,7 +47,7 @@ int main(int argc, char **argv){
     char *final_buff;
     float ratio_emax;
     unsigned long long rsize;
-    int nptl_traj, tracking_traj, is_recreate, nsteps;
+    int nptl_traj, tracking_traj, is_recreate, nsteps, reduced_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
@@ -71,6 +67,7 @@ int main(int argc, char **argv){
     tinterval = 1;
     is_recreate = 0; // Don't recreate a HDF5 file when it exists
     nsteps = 1;
+    reduced_tracer = 0; // Original tracer
 
     t0 = MPI_Wtime();
     is_help = get_configuration(argc, argv, mpi_rank, &key_index,
@@ -81,7 +78,7 @@ int main(int argc, char **argv){
             filename_meta, filepath, species, &tmax, &tmin, &tinterval,
             &multi_tsteps, &ux_kindex, filename_traj, &nptl_traj,
             &ratio_emax, &tracking_traj, &load_tracer_meta, &is_recreate,
-            &nsteps);
+            &nsteps, &reduced_tracer);
 
     /* when -h flag is set to seek help of how to use this program */
     if (is_help) {
@@ -121,6 +118,7 @@ int main(int argc, char **argv){
             &max_type_size, &key_value_type, dname_array);
         free(package_data);
         qindex = get_dataset_index("q", dname_array, dataset_num);
+        ux_kindex = get_dataset_index("Ux", dname_array, dataset_num);
         tracked_particles = (char *)malloc(nsteps_tot * nptl_traj * row_size);
         for (int j = 0; j < nsteps_tot*nptl_traj*row_size; j++) {
             tracked_particles[j] = 0;
@@ -137,8 +135,14 @@ int main(int argc, char **argv){
         for (int i = mtf; i < ntf; i++) {
             tstep = i * tinterval;
             if (mpi_rank == 0) printf("%d\n", tstep);
-            set_filenames(tstep, filepath, species, filename, group_name,
-                    filename_sorted, filename_attribute, filename_meta);
+            if (reduced_tracer) {
+                set_filenames_reduced(tstep, filepath, species, filename,
+                        group_name, filename_sorted, filename_attribute,
+                        filename_meta);
+            } else {
+                set_filenames(tstep, filepath, species, filename, group_name,
+                        filename_sorted, filename_attribute, filename_meta);
+            }
             if (nsteps == 1) {
                 final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
                         sort_key_only, skew_data, verbose, write_result,
@@ -229,69 +233,6 @@ int main(int argc, char **argv){
 }
 
 /******************************************************************************
- * Read the particle data and sort the data using one key. This is only for
- * a single time step.
- ******************************************************************************/
-char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
-        int sort_key_only, int skew_data, int verbose, int write_result,
-        int collect_data, int weak_scale_test, int weak_scale_test_length,
-        int local_sort_threaded, int local_sort_threads_num, int meta_data,
-        int ux_kindex, char *filename, char *group_name, char *filename_sorted,
-        char *filename_attribute, char *filename_meta,
-        unsigned long long *rsize, int load_tracer_meta, int is_recreate) {
-    int max_type_size, dataset_num, key_value_type, row_size;
-    hsize_t my_data_size, rest_size, my_offset;
-    char *package_data, *final_buff;
-    dset_name_item *dname_array;
-    dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
-    package_data = get_vpic_data_h5(mpi_rank, mpi_size, filename, group_name,
-            weak_scale_test, weak_scale_test_length, sort_key_only, key_index,
-            &row_size, &my_data_size, &rest_size, &dataset_num, &max_type_size,
-            &key_value_type, dname_array, &my_offset);
-
-    /* Set the variables for retrieving the data with actual datatypes. */
-    set_variable_data(max_type_size, key_index, dataset_num, key_value_type,
-            ux_kindex);
-
-    /* We have to use the meta data to calculate the particle position */
-    /* But when using the binary output, the position is already calculated, */
-    /* so we don't have to load the meta data. */
-    if (load_tracer_meta) {
-        calc_particle_positions(mpi_rank, my_offset, row_size, max_type_size,
-                my_data_size, filename_meta, group_name, dname_array,
-                dataset_num, package_data);
-    }
-
-    /* master:  also do slave's job. In addition, it is responsible for samples and pivots */
-    /* slave:   (1) sorts. (2) samples (3) sends sample to master (4) receives pivots */
-    /*          (5) sends/receives data to/from other processes based on pivots */
-    /*          (6) sorts data again   (7) writes data to its location */
-    create_opic_data_type(row_size);
-    if (mpi_rank==0){
-        printf("Start master of parallel sorting ! \n");
-        final_buff = master(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, key_index, dataset_num,
-                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
-                skew_data, collect_data, write_result, group_name,
-                filename_sorted, filename_attribute, dname_array, rsize,
-                is_recreate);
-    }else{
-        final_buff = slave(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, key_index, dataset_num,
-                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
-                skew_data, collect_data, write_result, group_name,
-                filename_sorted, filename_attribute, dname_array, rsize,
-                is_recreate);
-    }
-
-    free_opic_data_type();
-
-    free(dname_array);
-    free(package_data);
-    return final_buff;
-}
-
-/******************************************************************************
  * Set filenames.
  ******************************************************************************/
 void set_filenames(int tstep, char *filepath, char *species, char *filename,
@@ -306,4 +247,21 @@ void set_filenames(int tstep, char *filepath, char *species, char *filename,
     snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
     snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/grid_metadata_", species, "_tracer.h5p");
+}
+
+/******************************************************************************
+ * Set filenames for reduced tracer.
+ ******************************************************************************/
+void set_filenames_reduced(int tstep, char *filepath, char *species,
+        char *filename, char *group_name, char *filename_sorted,
+        char *filename_attribute, char *filename_meta)
+{
+    snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+    snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
+            "/T.", tstep, "/", species, "_tracer_reduced_sorted.h5p");
+    snprintf(filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
+            filepath, "/T.", tstep, "/", species, "_tracer_reduced_sorted.h5p");
+    snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
+    snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
+            "/T.", tstep, "/grid_metadata_", species, "_tracer_reduced.h5p");
 }
