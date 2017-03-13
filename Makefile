@@ -3,9 +3,10 @@
 #
 CC = mpicc
 # define any compile-time flags
-CFLAGS = -fopenmp -O3 -Wall -g -std=gnu99
+# CFLAGS = -fopenmp -O0 -Wall -g -std=gnu99
+CFLAGS = -fopenmp -O3 -Wall -std=gnu99
 
-INCLUDES = -I$(HDF5_INCL)
+INCLUDES = -I$(HDF5_ROOT)/include
 LFLAGS = 
 HDF5LIB = -L$(HDF5_ROOT)/lib -lhdf5
 LIBS = $(HDF5LIB) -L./ -ldl -lm
