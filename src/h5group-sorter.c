@@ -134,7 +134,7 @@ int main(int argc, char **argv){
     if (multi_tsteps) {
         for (int i = mtf; i < ntf; i++) {
             tstep = i * tinterval;
-            if (mpi_rank == 0) printf("%d\n", tstep);
+            if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
             if (reduced_tracer) {
                 set_filenames_reduced(tstep, filepath, species, filename,
                         group_name, filename_sorted, filename_attribute,
@@ -260,7 +260,7 @@ void set_filenames_reduced(int tstep, char *filepath, char *species,
     snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/", species, "_tracer_reduced_sorted.h5p");
     snprintf(filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
-            filepath, "/T.", tstep, "/", species, "_tracer_reduced_sorted.h5p");
+            filepath, "/T.", tstep, "/", species, "_tracer_qtag_sorted.h5p");
     snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
     snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/grid_metadata_", species, "_tracer_reduced.h5p");

@@ -1,94 +1,47 @@
-# Edit the following variables as needed
-#HDF_INSTALL = $(HOME)/hdf5
-#
 CC = mpicc
-# define any compile-time flags
-CFLAGS = -fopenmp -O3 -Wall -g -std=gnu99
 
-INCLUDES = -I$(HDF5_INCL)
-LFLAGS = 
-HDF5LIB = -L$(HDF5_ROOT)/lib -lhdf5
-LIBS = $(HDF5LIB) -L./ -ldl -lm
+# change HDF5_DIR to the HDF5 install directory in your system
+HDF5_DIR = $(HDF5_ROOT)
 
-# define the C source files
-SRCS_H5GROUP = configuration.c mpi_io.c vpic_data.c package_data.c \
-	   qsort-parallel.c get_data.c meta_data.c
-SRCS = h5group-sorter.c $(SRCS_H5GROUP)
+CFLAGS += -Wall -Iinclude -I$(HDF5_DIR)/include
+LDFLAGS += -Llib -L$(HDF5_DIR)/lib
+LDLIBS += -lm -ldl -lhdf5
 
-SRCS_TRAJ = time_frame_info.c particle_tags.c vpic_data.c get_data.c \
-			package_data.c mpi_io.c tracked_particle.c
-SRCS_PTRAJ = particle_trajectory.c $(SRCS_TRAJ)
+SRC_DIR = src
+OBJ_DIR = obj
 
-SRCS_BH5 = binary_to_hdf5.c
+SRC = $(wildcard $(SRC_DIR)/*.c)
+OBJ = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+OBJ_H5GROUP = $(addprefix $(OBJ_DIR)/, configuration.o mpi_io.o vpic_data.o \
+			  package_data.o qsort-parallel.o get_data.o meta_data.o \
+			  particle_tags.o tracked_particle.o h5group-sorter.o)
+OBJ_TRAJ = $(addprefix $(OBJ_DIR)/, time_frame_info.o particle_tags.o \
+		   vpic_data.o get_data.o package_data.o mpi_io.o tracked_particle.o \
+		   particle_trajectory.o)
+OBJ_BH5 = $(addprefix $(OBJ_DIR)/, get_data.o package_data.o mpi_io.o \
+		  binary_to_hdf5.o)
+OBJ_REDUCE = $(addprefix $(OBJ_DIR)/, configuration.o particle_tags.o \
+			 tracked_particle.o vpic_data.o get_data.o package_data.o \
+			 mpi_io.o qsort-parallel.o meta_data.o reduce_tracer.o)
 
-SRCS_REDUCE = reduce_tracer.c
+.PHONY: all clean
 
-# define the C object files 
-#
-# This uses Suffix Replacement within a macro:
-#   $(name:string1=string2)
-#         For each word in 'name' replace 'string1' with 'string2'
-# Below we are replacing the suffix .c of all words in the macro SRCS
-# with the .o suffix
-#
-OBJS = $(SRCS:.c=.o)
-OBJS_H5GROUP = $(SRCS_H5GROUP:.c=.o)
+all: $(OBJ) h5group-sorter h5trajectory binary_to_hdf5 reduce_tracer
 
-OBJS_TRAJ = $(SRCS_TRAJ:.c=.o)
-OBJS_PTRAJ = $(SRCS_PTRAJ:.c=.o)
+h5group-sorter: $(OBJ_H5GROUP)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-OBJS_BH5 = $(SRCS_BH5:.c=.o)
-OBJS_REDUCE = $(SRCS_REDUCE:.c=.o)
+h5trajectory: $(OBJ_TRAJ)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-# define the executable file 
-MAIN = h5group-sorter
-TRAJ = h5trajectory
-BH5  = binary_to_hdf5
-REDUCE = reduce_tracer
+binary_to_hdf5: $(OBJ_BH5)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-#
-.PHONY: depend clean
+reduce_tracer: $(OBJ_REDUCE)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-all:	libh5sort.a libtraj.a $(MAIN) $(TRAJ) $(BH5) $(REDUCE)
-	@echo  Programs are successfully compiled!
-
-main:	$(MAIN)
-	@echo  $(MAIN) are successfully compiled!
-
-traj:	$(TRAJ)
-	@echo  $(TRAJ) is successfully compiled!
-
-bh5:	$(BH5)
-	@echo  $(BH5) is successfully compiled!
-
-reduce:	$(REDUCE)
-	@echo  $(REDUCE) is successfully compiled!
-
-$(MAIN): $(OBJS) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS) -ltraj
-
-$(TRAJ): $(OBJS_PTRAJ) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(TRAJ) $(OBJS_PTRAJ) $(LFLAGS) $(LIBS)
-
-$(BH5): $(OBJS_BH5) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(BH5) $(OBJS_BH5) $(LFLAGS) $(LIBS) -lh5sort -ltraj
-
-$(REDUCE): $(OBJS_REDUCE) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(REDUCE) $(OBJS_REDUCE) $(LFLAGS) $(LIBS) -lh5sort -ltraj
-
-libh5sort.a: $(OBJS_H5GROUP)
-	ar rc $@ $^ && ranlib $@
-
-libtraj.a: $(OBJS_TRAJ)
-	ar rc $@ $^ && ranlib $@
-
-.c.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) *.o *.a *~ $(MAIN) $(TRAJ) $(BH5) $(REDUCE)
-
-depend: $(SRCS)
-	makedepend $(INCLUDES) $^
-
-# DO NOT DELETE THIS LINE -- make depend needs it
+	$(RM) $(OBJ)

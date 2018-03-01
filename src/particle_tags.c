@@ -99,7 +99,6 @@ void get_hdf5_data_size(char *filename, char *groupname, char *dataset_name,
 void get_particle_tags_initial(char *filename, int tstep, int rank,
         int particle_select, int *tags)
 {
-    double emax;
     int step_len = get_int_len(tstep);
     char groupname[step_len+6];
     hid_t file_id, group_id, dset_id;
