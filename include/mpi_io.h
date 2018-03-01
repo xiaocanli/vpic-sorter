@@ -1,3 +1,6 @@
+#ifndef MPI_IO_H
+#define MPI_IO_H
+
 #include "dset_name_item.h"
 
 //Read the data from "dset_id" based on "my_offset" and "my_data_size"
@@ -12,3 +15,5 @@ int write_result_file(int mpi_rank, int mpi_size, char *data,
         char is_recreate);
 
 void create_SDS_data_type();
+
+#endif

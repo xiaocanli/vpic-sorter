@@ -1,3 +1,6 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
 static const double lowest_double = -DBL_MAX;
 static const double higest_double =  DBL_MAX;
 
@@ -14,3 +17,5 @@ static const double higest_double =  DBL_MAX;
 
 // Maximum length of filenames
 #define MAX_FILENAME_LEN 256
+
+#endif

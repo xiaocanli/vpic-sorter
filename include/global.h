@@ -1,3 +1,6 @@
+#ifndef GLOBAL_H
+#define GLOBAL_H
+
 #include "constants.h"
 
 extern char *filename;
@@ -63,3 +66,5 @@ extern char *package_data;
 
 //Get the index-th data in the row (row_data) as double
 double get_value_double(int index, char *row_data);
+
+#endif

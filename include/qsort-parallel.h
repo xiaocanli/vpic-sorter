@@ -1,3 +1,6 @@
+#ifndef QSORT_PARALLEL_H
+#define QSORT_PARALLEL_H
+
 #include "dset_name_item.h"
 
 //Compare the key in "long long" type
@@ -58,3 +61,5 @@ char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
         int ux_kindex, char *filename, char *group_name, char *filename_sorted,
         char *filename_attribute, char *filename_meta,
         unsigned long long *rsize, int load_tracer_meta, int is_recreate);
+
+#endif

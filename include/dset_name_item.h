@@ -1,7 +1,7 @@
-#include <hdf5.h>
-
 #ifndef DSET_NAME_ITEM_H
 #define DSET_NAME_ITEM_H
+
+#include <hdf5.h>
 
 //The struct to store the information of datasets
 typedef struct{
