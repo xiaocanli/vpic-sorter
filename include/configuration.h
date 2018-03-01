@@ -1,3 +1,6 @@
+#ifndef GET_CONFIGURATION_H
+#define GET_CONFIGURATION_H
+
 int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
         int *sort_key_only, int *skew_data, int *verbose, int *write_result,
         int *collect_data, int *weak_scale_test, int *weak_scale_test_length,
@@ -8,3 +11,5 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
         int *ux_kindex, char *filename_traj, int *nptl_traj, float *ratio_emax,
         int *tracking_traj, int *load_tracer_meta, int *is_recreate, int *nsteps,
         int *reduced_tracer);
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef TRACKED_PARTICLE_H
+#define TRACKED_PARTICLE_H
+
 #include "hdf5.h"
 #include "dset_name_item.h"
 
@@ -14,3 +17,5 @@ int get_dataset_index(char *dname, dset_name_item *dname_array, int dataset_num)
 void get_reduced_particle_info(char *package_data, int qindex, int row_size,
         hsize_t my_data_size, int *tags, int max_num_ptl,
         unsigned long long *nptl_reduce, char *tracked_particles);
+
+#endif
