@@ -23,10 +23,13 @@ OBJ_BH5 = $(addprefix $(OBJ_DIR)/, get_data.o package_data.o mpi_io.o \
 OBJ_REDUCE = $(addprefix $(OBJ_DIR)/, configuration.o particle_tags.o \
 			 tracked_particle.o vpic_data.o get_data.o package_data.o \
 			 mpi_io.o qsort-parallel.o meta_data.o reduce_tracer.o)
+OBJ_CHECK_HDF5 = $(addprefix $(OBJ_DIR)/, get_data.o package_data.o vpic_data.o \
+				 mpi_io.o check_hdf5.o)
 
 .PHONY: all clean
 
-all: $(OBJ) h5group-sorter h5trajectory binary_to_hdf5 reduce_tracer
+all: $(OBJ) h5group-sorter h5trajectory binary_to_hdf5 reduce_tracer \
+			check_hdf5
 
 h5group-sorter: $(OBJ_H5GROUP)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
@@ -38,6 +41,9 @@ binary_to_hdf5: $(OBJ_BH5)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 reduce_tracer: $(OBJ_REDUCE)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+check_hdf5: $(OBJ_CHECK_HDF5)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c

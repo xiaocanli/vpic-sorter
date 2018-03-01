@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+#include <float.h>
+
 static const double lowest_double = -DBL_MAX;
 static const double higest_double =  DBL_MAX;
 

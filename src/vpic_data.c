@@ -13,8 +13,6 @@
 
 void print_sorting_key_info(int mpi_rank, int sort_key_only, int key_index,
         dset_name_item *dname_array, int dataset_num, int *key_value_type);
-void open_file_group_h5(char *filename, char *group_name, hid_t *plist_id,
-        hid_t *file_id, hid_t *gid);
 void partition_data_h5(dset_name_item *dname_array, int mpi_rank, int mpi_size,
         hsize_t *dims_out, hsize_t *my_data_size, hsize_t *rest_size,
         hsize_t *my_offset);

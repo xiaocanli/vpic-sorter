@@ -17,6 +17,9 @@ char* get_vpic_pure_data_h5(int mpi_rank, int mpi_size, char *filename,
         hsize_t *rest_size, int *dataset_num, int *max_type_size,
         int *key_value_type, dset_name_item *dname_array);
 
+void open_file_group_h5(char *filename, char *group_name, hid_t *plist_id,
+        hid_t *file_id, hid_t *gid);
+
 void open_dataset_h5(hid_t gid, int is_all_dset, int key_index,
         dset_name_item *dname_array, int *dataset_num, int *max_type_size);
 

@@ -6,3 +6,4 @@ data/
 attribute
 binary_to_hdf5
 reduce_tracer
+check_hdf5
