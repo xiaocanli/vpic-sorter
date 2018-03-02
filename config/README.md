@@ -1,4 +1,10 @@
 # Scripts for running code
+There are many command line arguments for running `h5group-sorter`.
+You can check them out by running
+```sh
+./h5group-sorter -h
+```
+after compiling the code. We provide a few scripts to run the code.
 
 ## Scripts to load modules
 * `module.sh`: for LANL clusters
@@ -11,11 +17,7 @@ You are going to the indices of `Ux` and `q` for sorting.
 
 ## Tracer sorting scripts
 These scripts will use `h5group-sorter` to sort particles based on different
-variables, such as particles tags and energy. In the top directory,
-```sh
-./h5group-sorter -h
-```
-to check out the command line arguments to run the program.
+variables, such as particles tags and energy.
 
 ## Scripts to get particle trajectories
 * `trajectory.sh`: get particle trajectories from tag-sorted tracers. It requires
