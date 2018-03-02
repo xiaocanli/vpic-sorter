@@ -1,41 +1,17 @@
 #!/bin/bash
 
-export filepath=/net/scratch3/xiaocanli/turbulent-sheet3D-mixing-trinity-Feb16-test
-export fpath_binary=$filepath/tracer
-export fpath_hdf5=$filepath/tracer_hdf5
-
-# # Find the maximum time step
-# export tstep_max=-1
-# export ct=0
-# for D in `find $filepath ! -path $filepath -type d`
-# do
-#     arr=( $(echo $D | awk -F "." '{print $2}') )
-#     tstep_tmp=${arr[0]}
-#     if [ $tstep_tmp -gt $tstep_max ]
-#     then
-#         tstep_max=$tstep_tmp
-#     fi
-#     tsteps[ct]=$tstep_tmp
-#     ct=$ct+1
-# done
-# tstep=$tstep_max
-
-# # From http://stackoverflow.com/a/11789688
-# IFS=$'\n' tsorted=($(sort -n <<<"${tsteps[*]}"))
-# # printf "[%s]\n" "${sorted[@]}"
-
-# # Time interval
-# tinterval=`expr ${tsorted[1]} - ${tsorted[0]}`
-# # The minimum time step
-# tstep_min=$tsorted[0]
-
-tstep_max=8000
+filepath=/net/scratch3/xiaocanli/reconnection/turbulent-sheet3D-mixing-trinity-Feb16-test
+fpath_binary=$filepath/tracer
+fpath_hdf5=$filepath/tracer_test
+particle=electron
 tstep_min=0
+tstep_max=5
 tinterval=5
 
-ncpus=256
+mpi_size_pic=256
 dataset_num=8
-export particle=electron
+
+mpi_size=32
 
 # Create the directories
 if [ ! -d "$fpath_hdf5" ]; then
@@ -53,9 +29,18 @@ echo "Minimum and maximum time step:" $tstep_min $tstep_max
 echo "Time interval:" $tinterval
 echo "Particle species:" $particle
 echo "Binary file path:" $filepath
-echo "Number of CPUs used in PIC simulation:" $ncpus
+echo "Number of CPUs used in PIC simulation:" $mpi_size_pic
 
-mpirun -np 64 ./binary_to_hdf5 --tmin=$tstep_min --tmax=$tstep_max \
-    --tinterval=$tinterval --fpath_binary=$fpath_binary \
-    --fpath_hdf5=$fpath_hdf5 --species=${particle} --ncpus=$ncpus \
-    --dataset_num=$dataset_num
+cd ..
+
+mpirun -np $mpi_size \
+./binary_to_hdf5 --tmin=$tstep_min \
+                 --tmax=$tstep_max \
+                 --tinterval=$tinterval \
+                 --fpath_binary=$fpath_binary \
+                 --fpath_hdf5=$fpath_hdf5 \
+                 --species=${particle} \
+                 --ncpus=$mpi_size_pic \
+                 --dataset_num=$dataset_num
+
+cd config
