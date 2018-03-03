@@ -31,50 +31,26 @@ int main(int argc, char **argv){
     int mpi_size, mpi_rank;
     double t0, t1;
     int is_help;
-    int key_index, sort_key_only, skew_data, verbose, write_result,
-        collect_data, weak_scale_test, weak_scale_test_length,
-        local_sort_threaded, local_sort_threads_num, meta_data,
-        load_tracer_meta;
-    int tmin, tmax, tinterval; // Minimum, maximum time step and time interval
-    int multi_tsteps, ux_kindex;
-    char *filename, *group_name, *filename_sorted, *filename_attribute;
-    char *filename_meta, *filepath, *species, *filename_traj, *filename_reduced;
-    char *final_buff;
-    float ratio_emax;
+    char *filename_reduced, *final_buff;
     unsigned long long rsize;
-    int nptl_traj, tracking_traj, is_recreate, nsteps, reduced_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(comm, &mpi_size);
     MPI_Comm_rank(comm, &mpi_rank);
 
-    filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_reduced = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    species = (char *)malloc(16 * sizeof(char));
-    tmin = 0;
-    tmax = 0;
-    tinterval = 1;
-    is_recreate = 0; // Don't recreate a HDF5 file when it exists
-    nsteps = 1;
-    reduced_tracer = 0;
+    config_t *config = (config_t *)malloc(sizeof(config_t));
+    config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->species = (char *)malloc(16 * sizeof(char));
 
     t0 = MPI_Wtime();
-    is_help = get_configuration(argc, argv, mpi_rank, &key_index,
-            &sort_key_only, &skew_data, &verbose, &write_result,
-            &collect_data, &weak_scale_test, &weak_scale_test_length,
-            &local_sort_threaded, &local_sort_threads_num, &meta_data,
-            filename, group_name, filename_sorted, filename_attribute,
-            filename_meta, filepath, species, &tmax, &tmin, &tinterval,
-            &multi_tsteps, &ux_kindex, filename_traj, &nptl_traj,
-            &ratio_emax, &tracking_traj, &load_tracer_meta, &is_recreate,
-            &nsteps, &reduced_tracer);
+    is_help = get_configuration(argc, argv, mpi_rank, config);
 
     /* when -h flag is set to seek help of how to use this program */
     if (is_help) {
@@ -83,8 +59,8 @@ int main(int argc, char **argv){
     }
 
     int ntf, mtf, tstep;
-    mtf = tmin / tinterval;
-    ntf = tmax / tinterval + 1;
+    mtf = config->tmin / config->tinterval;
+    ntf = config->tmax / config->tinterval + 1;
 
     /* Get the particle tags from sorted-by-energy data of the last time frame */
     /* Then sort the tags */
@@ -95,15 +71,16 @@ int main(int argc, char **argv){
     hsize_t my_data_size, rest_size;
     char filename_initial[MAX_FILENAME_LEN];
     tstep = 0;
-    snprintf(filename_initial, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
-            "/T.", tstep, "/", species, "_tracer.h5p");
-    snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
-    if (nsteps != 1) tstep--;
+    snprintf(filename_initial, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
+            config->filepath, "/T.", tstep, "/", config->species,
+            "_tracer.h5p");
+    snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+    if (config->nsteps != 1) tstep--;
     int rank = 1;
     int particle_select = 25;
     hsize_t dims_out[rank], count;
     if (mpi_rank == 0) {
-        get_hdf5_data_size(filename_initial, group_name, "q", dims_out);
+        get_hdf5_data_size(filename_initial, config->group_name, "q", dims_out);
     }
     MPI_Bcast(dims_out, rank, MPI_LONG, 0, MPI_COMM_WORLD);
     count = ceil(dims_out[0] / (particle_select + 0.0));
@@ -117,7 +94,7 @@ int main(int argc, char **argv){
     dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
     // Just for getting the attributes of the HDF5 file
     package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename_initial,
-        group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+        config->group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
         &max_type_size, &key_value_type, dname_array);
     free(package_data);
     qindex = get_dataset_index("q", dname_array, dataset_num);
@@ -152,27 +129,23 @@ int main(int argc, char **argv){
     // 2 times larger to make sure the data size is enough
     tracked_particles = (char *)calloc(particle_per_core * row_size * 2, sizeof(char));
 
+    filename_reduced = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     unsigned long long nptl_reduce = 0;
     for (int i = mtf; i < ntf; i++) {
-        tstep = i * tinterval;
+        tstep = i * config->tinterval;
         if (mpi_rank == 0) printf("%d\n", tstep);
-        set_filenames(tstep, filepath, species, filename, group_name,
-                filename_sorted, filename_attribute, filename_meta,
-                filename_reduced);
-        final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
-                sort_key_only, skew_data, verbose, write_result, collect_data,
-                weak_scale_test, weak_scale_test_length, local_sort_threaded,
-                local_sort_threads_num, meta_data, ux_kindex, filename,
-                group_name, filename_sorted, filename_attribute, filename_meta,
-                &rsize, load_tracer_meta, is_recreate);
+        set_filenames(tstep, config->filepath, config->species, config->filename,
+                config->group_name, config->filename_sorted, config->filename_attribute,
+                config->filename_meta, filename_reduced);
+        final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
         get_reduced_particle_info(final_buff, qindex, row_size, rsize, tags,
                 count, &nptl_reduce, tracked_particles);
-        if(collect_data == 1) {
+        if(config->collect_data == 1) {
             free(final_buff);
         }
         write_result_file(mpi_rank, mpi_size, tracked_particles, nptl_reduce,
-                row_size, dataset_num, max_type_size, key_index, group_name,
-                filename_reduced, filename_attribute, dname_array, is_recreate);
+                row_size, dataset_num, max_type_size, config->key_index, config->group_name,
+                filename_reduced, config->filename_attribute, dname_array, config->is_recreate);
 
 /*         /1* Read the data and broadcast to all MPI processes *1/ */
 /*         if (mpi_rank == 0) { */
@@ -212,17 +185,19 @@ int main(int argc, char **argv){
         printf("Overall time is [%f]s \n", (t1 - t0));
     }
 
+    free(filename_reduced);
     free(tags);
 
-    free(filename);
-    free(group_name);
-    free(filename_sorted);
-    free(filename_attribute);
-    free(filename_meta);
-    free(filename_traj);
-    free(filename_reduced);
-    free(filepath);
-    free(species);
+    free(config->filename);
+    free(config->group_name);
+    free(config->filename_sorted);
+    free(config->filename_attribute);
+    free(config->filename_meta);
+    free(config->filename_traj);
+    free(config->filepath);
+    free(config->species);
+    free(config);
+
     MPI_Finalize();
     return 0;
 }

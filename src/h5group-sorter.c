@@ -1,6 +1,7 @@
 /*
- *
  * Generally, this file sort the dataset inside a HDF5 group
+ * The original code is developed by Bin Dong at LBNL.
+ * Modified by Xiaocan Li.
  *
  */
 
@@ -22,9 +23,8 @@
 #include "tracked_particle.h"
 #include "particle_tags.h"
 
-void set_filenames(int tstep, char *filepath, char *species, char *filename,
-        char *group_name, char *filename_sorted, char *filename_attribute,
-        char *filename_meta);
+void set_filenames(int tstep, config_t *config);
+
 void set_filenames_reduced(int tstep, char *filepath, char *species,
         char *filename, char *group_name, char *filename_sorted,
         char *filename_attribute, char *filename_meta);
@@ -36,174 +36,149 @@ int main(int argc, char **argv){
     int mpi_size, mpi_rank;
     double t0, t1;
     int is_help;
-    int key_index, sort_key_only, skew_data, verbose, write_result,
-        collect_data, weak_scale_test, weak_scale_test_length,
-        local_sort_threaded, local_sort_threads_num, meta_data,
-        load_tracer_meta;
-    int tmin, tmax, tinterval; // Minimum, maximum time step and time interval
-    int multi_tsteps, ux_kindex;
-    char *filename, *group_name, *filename_sorted, *filename_attribute;
-    char *filename_meta, *filepath, *species, *filename_traj;
     char *final_buff;
-    float ratio_emax;
     unsigned long long rsize;
-    int nptl_traj, tracking_traj, is_recreate, nsteps, reduced_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(comm, &mpi_size);
     MPI_Comm_rank(comm, &mpi_rank);
 
-    filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    species = (char *)malloc(16 * sizeof(char));
-    tmin = 0;
-    tmax = 0;
-    tinterval = 1;
-    is_recreate = 0; // Don't recreate a HDF5 file when it exists
-    nsteps = 1;
-    reduced_tracer = 0; // Original tracer
-
     t0 = MPI_Wtime();
-    is_help = get_configuration(argc, argv, mpi_rank, &key_index,
-            &sort_key_only, &skew_data, &verbose, &write_result,
-            &collect_data, &weak_scale_test, &weak_scale_test_length,
-            &local_sort_threaded, &local_sort_threads_num, &meta_data,
-            filename, group_name, filename_sorted, filename_attribute,
-            filename_meta, filepath, species, &tmax, &tmin, &tinterval,
-            &multi_tsteps, &ux_kindex, filename_traj, &nptl_traj,
-            &ratio_emax, &tracking_traj, &load_tracer_meta, &is_recreate,
-            &nsteps, &reduced_tracer);
 
-    /* when -h flag is set to seek help of how to use this program */
+    config_t *config = (config_t *)malloc(sizeof(config_t));
+    config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->species = (char *)malloc(16 * sizeof(char));
+
+    is_help = get_configuration(argc, argv, mpi_rank, config);
+
+    // when -h flag is set to seek help of how to use this program
     if (is_help) {
         MPI_Finalize();
         return 1;
     }
 
     int ntf, mtf, tstep, nsteps_tot;
-    mtf = tmin / tinterval;
-    ntf = tmax / tinterval + 1;
-    if (nsteps == 1) {
+    mtf = config->tmin / config->tinterval;
+    ntf = config->tmax / config->tinterval + 1;
+    if (config->nsteps == 1) {
         nsteps_tot = ntf;
     } else {
-        nsteps_tot = tmax;
+        nsteps_tot = config->tmax;
     }
 
-    /* Get the particle tags from sorted-by-energy data of the last time frame */
-    /* Then sort the tags */
+    // Get the particle tags from sorted-by-energy data of the last time frame,
+    // and then sort the tags
     int *tags, qindex;
     int row_size, dataset_num, max_type_size, key_value_type;
     char *tracked_particles, *tracked_particles_sum, *package_data;
     dset_name_item *dname_array;
     hsize_t my_data_size, rest_size;
-    if (tracking_traj) {
-        tags = (int *)malloc(nptl_traj * sizeof(int));
+    if (config->tracking_traj) {
+        tags = (int *)malloc(config->nptl_traj * sizeof(int));
         char filename_ene[MAX_FILENAME_LEN];
-        tstep = (ntf - 1) * tinterval;
-        snprintf(filename_ene, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "/T.",
-                tstep, "/", species, "_tracer_energy_sorted.h5p");
-        if (nsteps != 1) tstep--;
-        get_particle_tags(filename_ene, tstep, ratio_emax, nptl_traj, tags);
-        qsort(tags, nptl_traj, sizeof(int), CompareInt32Value);
-        snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+        tstep = (ntf - 1) * config->tinterval;
+        snprintf(filename_ene, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
+                config->filepath, "/T.", tstep, "/", config->species,
+                "_tracer_energy_sorted.h5p");
+        if (config->nsteps != 1) tstep--;
+        // get particle tags w.r.t some energy
+        get_particle_tags(filename_ene, tstep, config->ratio_emax,
+                config->nptl_traj, tags);
+
+        // sort the tags
+        qsort(tags, config->nptl_traj, sizeof(int), CompareInt32Value);
+
+        // get the indices for Ux and q in the HDF5 file
+        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
         dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
         package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename_ene,
-            group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+            config->group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
             &max_type_size, &key_value_type, dname_array);
         free(package_data);
         qindex = get_dataset_index("q", dname_array, dataset_num);
-        ux_kindex = get_dataset_index("Ux", dname_array, dataset_num);
-        tracked_particles = (char *)malloc(nsteps_tot * nptl_traj * row_size);
-        for (int j = 0; j < nsteps_tot*nptl_traj*row_size; j++) {
+        config->ux_kindex = get_dataset_index("Ux", dname_array, dataset_num);
+
+        tracked_particles = (char *)malloc(nsteps_tot * config->nptl_traj * row_size);
+        for (int j = 0; j < nsteps_tot*config->nptl_traj*row_size; j++) {
             tracked_particles[j] = 0;
         }
         if (mpi_rank == 0) {
-            tracked_particles_sum = (char *)malloc(nsteps_tot * nptl_traj * row_size);
-            for (int j = 0; j < nsteps_tot*nptl_traj*row_size; j++) {
+            tracked_particles_sum = (char *)malloc(nsteps_tot * config->nptl_traj * row_size);
+            for (int j = 0; j < nsteps_tot*config->nptl_traj*row_size; j++) {
                 tracked_particles_sum[j] = 0;
             }
         }
-    }
+    } // if (config->tracking_traj)
 
-    if (multi_tsteps) {
+    if (config->multi_tsteps) {
         for (int i = mtf; i < ntf; i++) {
-            tstep = i * tinterval;
+            tstep = i * config->tinterval;
             if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
-            if (reduced_tracer) {
-                set_filenames_reduced(tstep, filepath, species, filename,
-                        group_name, filename_sorted, filename_attribute,
-                        filename_meta);
+            if (config->reduced_tracer) {
+                set_filenames_reduced(tstep, config->filepath, config->species,
+                        config->filename, config->group_name, config->filename_sorted,
+                        config->filename_attribute, config->filename_meta);
             } else {
-                set_filenames(tstep, filepath, species, filename, group_name,
-                        filename_sorted, filename_attribute, filename_meta);
+                set_filenames(tstep, config);
             }
-            if (nsteps == 1) {
-                final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
-                        sort_key_only, skew_data, verbose, write_result,
-                        collect_data, weak_scale_test, weak_scale_test_length,
-                        local_sort_threaded, local_sort_threads_num, meta_data,
-                        ux_kindex, filename, group_name, filename_sorted,
-                        filename_attribute, filename_meta, &rsize,
-                        load_tracer_meta, is_recreate);
-                if (tracking_traj) {
+            if (config->nsteps == 1) {
+                final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
+                if (config->tracking_traj) {
                     get_tracked_particle_info(final_buff, qindex, row_size,
-                            rsize, i, ntf, tags, nptl_traj, tracked_particles);
+                            rsize, i, ntf, tags, config->nptl_traj, tracked_particles);
                 }
-                if(collect_data == 1) {
+                if(config->collect_data == 1) {
                     free(final_buff);
                 }
             } else {
-                for (tstep = (i-1) * tinterval; tstep < i*tinterval; tstep++) {
-                    snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#",
+                for (tstep = (i-1) * config->tinterval; tstep < i*config->tinterval; tstep++) {
+                    snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#",
                             tstep);
-                    final_buff = sorting_single_tstep(mpi_size, mpi_rank,
-                            key_index, sort_key_only, skew_data, verbose,
-                            write_result, collect_data, weak_scale_test,
-                            weak_scale_test_length, local_sort_threaded,
-                            local_sort_threads_num, meta_data,
-                            ux_kindex, filename, group_name, filename_sorted,
-                            filename_attribute, filename_meta, &rsize,
-                            load_tracer_meta, is_recreate);
-                    if (tracking_traj) {
+                    final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
+                    if (config->tracking_traj) {
                         get_tracked_particle_info(final_buff, qindex, row_size,
-                                rsize, tstep, nsteps_tot, tags, nptl_traj,
+                                rsize, tstep, nsteps_tot, tags, config->nptl_traj,
                                 tracked_particles);
                     }
-                    if(collect_data == 1) {
+                    if(config->collect_data == 1) {
                         free(final_buff);
                     }
                 }
             }
         }
     } else {
-        final_buff = sorting_single_tstep(mpi_size, mpi_rank, key_index,
-                sort_key_only, skew_data, verbose, write_result, collect_data,
-                weak_scale_test, weak_scale_test_length, local_sort_threaded,
-                local_sort_threads_num, meta_data, ux_kindex, filename,
-                group_name, filename_sorted, filename_attribute,
-                filename_meta, &rsize, load_tracer_meta, is_recreate);
-        if(collect_data == 1) {
+        if (mpi_rank == 0) {
+            printf("Input filename: %s\n", config->filename);
+            printf("Group name: %s\n", config->group_name);
+            printf("Output filename: %s\n", config->filename_sorted);
+            printf("Meta data filename: %s\n", config->filename_meta);
+        }
+        set_filenames(config->tstep, config);
+
+        final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
+        if(config->collect_data == 1) {
             free(final_buff);
         }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if (tracking_traj) {
+    if (config->tracking_traj) {
         MPI_Reduce(tracked_particles, tracked_particles_sum,
-                nsteps_tot*nptl_traj*row_size, MPI_CHAR, MPI_SUM, 0,
+                nsteps_tot*config->nptl_traj*row_size, MPI_CHAR, MPI_SUM, 0,
                 MPI_COMM_WORLD);
 
         /* Save the particle data. */
         if (mpi_rank == 0) {
-            save_tracked_particles(filename_traj, tracked_particles_sum,
-                    nsteps_tot, nptl_traj, row_size, dataset_num, max_type_size,
+            save_tracked_particles(config->filename_traj, tracked_particles_sum,
+                    nsteps_tot, config->nptl_traj, row_size, dataset_num, max_type_size,
                     dname_array, tags);
         }
         free(tracked_particles);
@@ -220,33 +195,42 @@ int main(int argc, char **argv){
         printf("Overall time is [%f]s \n", (t1 - t0));
     }
 
-    free(filename);
-    free(group_name);
-    free(filename_sorted);
-    free(filename_attribute);
-    free(filename_meta);
-    free(filename_traj);
-    free(filepath);
-    free(species);
+    free(config->filename);
+    free(config->group_name);
+    free(config->filename_sorted);
+    free(config->filename_attribute);
+    free(config->filename_meta);
+    free(config->filename_traj);
+    free(config->filepath);
+    free(config->species);
+    free(config);
+
     MPI_Finalize();
     return 0;
 }
 
 /******************************************************************************
- * Set filenames.
+ * Set filenames to include file directories
  ******************************************************************************/
-void set_filenames(int tstep, char *filepath, char *species, char *filename,
-        char *group_name, char *filename_sorted, char *filename_attribute,
-        char *filename_meta)
+void set_filenames(int tstep, config_t *config)
 {
-    snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
-    snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
-            "/T.", tstep, "/", species, "_tracer.h5p");
-    snprintf(filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
-            filepath, "/T.", tstep, "/", species, "_tracer_sorted.h5p");
-    snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
-    snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
-            "/T.", tstep, "/grid_metadata_", species, "_tracer.h5p");
+    char *tempname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+
+    strcpy(tempname, config->filename);
+    snprintf(config->filename, MAX_FILENAME_LEN, "%s%s%d%s%s",
+            config->filepath, "/T.", tstep, "/", tempname);
+
+    strcpy(tempname, config->filename_sorted);
+    snprintf(config->filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s",
+            config->filepath, "/T.", tstep, "/", tempname);
+
+    snprintf(config->filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
+
+    strcpy(tempname, config->filename_meta);
+    snprintf(config->filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s",
+            config->filepath, "/T.", tstep, "/", tempname);
+    free(tempname);
 }
 
 /******************************************************************************
@@ -260,7 +244,7 @@ void set_filenames_reduced(int tstep, char *filepath, char *species,
     snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/", species, "_tracer_reduced_sorted.h5p");
     snprintf(filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
-            filepath, "/T.", tstep, "/", species, "_tracer_qtag_sorted.h5p");
+            filepath, "/T.", tstep, "/", species, "_tracer_energy_sorted.h5p");
     snprintf(filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
     snprintf(filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath,
             "/T.", tstep, "/grid_metadata_", species, "_tracer_reduced.h5p");

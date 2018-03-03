@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Modify these parameters
-export filepath=/net/scratch3/xiaocanli/reconnection/open3d-full/tracer_test/
-export particle=electron
+# -----------------------------------------------------------------------------
+trace_particles_without_save_sorted_files=true
+filepath=/net/scratch3/xiaocanli/reconnection/open3d-full/tracer_test/
+particle=electron
 tstep_min=0
 tstep_max=13
 tinterval=13
@@ -18,17 +20,23 @@ echo "Time interval:" $tinterval
 
 tstep=13
 fpath=$filepath/T.$tstep
-input_file=$fpath/${particle}_tracer_reduced_sorted.h5p
-output_file=$fpath/${particle}_tracer_energy_sorted.h5p
-meta_file=$fpath/grid_metadata_${particle}_tracer_reduced.h5p
+input_file=${particle}_tracer_reduced_sorted.h5p
+meta_file=grid_metadata_${particle}_tracer_reduced.h5p
+energy_sorted_file=${particle}_tracer_energy_sorted.h5p
+qtag_sorted_file=${particle}_tracer_qtag_sorted.h5p
+# -----------------------------------------------------------------------------
+
+if [ "$trace_particles_without_save_sorted_files" = true ] ; then
+    additional_flags="-q -w"
+fi
 
 cd ../
 
 # sort by particle energy
-rm $output_file
+rm $fpath/$energy_sorted_file
 srun -n $mpi_size \
 ./h5group-sorter -f $input_file \
-                 -o $output_file \
+                 -o $energy_sorted_file \
                  -g /Step#$tstep \
                  -m $meta_file \
                  -k $energy_index \
@@ -36,34 +44,34 @@ srun -n $mpi_size \
                  -u $ux_index \
                  --tmin=$tstep_min \
                  --tmax=$tstep_max \
+                 --tstep=$tstep \
                  --tinterval=$tinterval \
                  --filepath=$filepath \
-                 --species=${particle} \
+                 --species=$particle \
                  --is_recreate=$is_recreate \
                  --nsteps=$nsteps \
                  --reduced_tracer=$reduced_tracer
 
-# sort by particle tag
-output_file=$fpath/${particle}_tracer_qtag_sorted.h5p
-srun -n $mpi_size \
-./h5group-sorter -f $input_file \
-                 -o $output_file \
-                 -g /Step#$tstep \
-                 -m $meta_file \
-                 -k $q_index \
-                 -a attribute \
-                 --tmin=$tstep_min \
-                 --tmax=$tstep_max \
-                 --tinterval=$tinterval \
-                 --filepath=$filepath \
-                 --species=${particle} -u 6 \
-                 -p -r --filename_traj=data/${particle}s_3.h5p \
-                 --nptl_traj=1000 \
-                 --ratio_emax=1 \
-                 --is_recreate=$is_recreate \
-                 --nsteps=$nsteps \
-                 --reduced_tracer=$reduced_tracer
-
-# -q -w -r --filename_traj=data/${particle}s_3.h5p \
+# # sort by particle tag and save sorted tracers
+# srun -n $mpi_size \
+# ./h5group-sorter -f $input_file \
+#                  -o $qtag_sorted_file \
+#                  -g /Step#$tstep \
+#                  -m $meta_file \
+#                  -k $q_index \
+#                  -a attribute \
+#                  -u $ux_index \
+#                  -p -r $additional_flags \
+#                  --tmin=$tstep_min \
+#                  --tmax=$tstep_max \
+#                  --tinterval=$tinterval \
+#                  --filepath=$filepath \
+#                  --species=${particle} \
+#                  --filename_traj=data/${particle}s_3.h5p \
+#                  --nptl_traj=1000 \
+#                  --ratio_emax=1 \
+#                  --is_recreate=$is_recreate \
+#                  --nsteps=$nsteps \
+#                  --reduced_tracer=$reduced_tracer
 
 cd config

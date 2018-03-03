@@ -10,6 +10,7 @@
 #include "package_data.h"
 #include "constants.h"
 #include "vpic_data.h"
+#include "configuration.h"
 
 void print_sorting_key_info(int mpi_rank, int sort_key_only, int key_index,
         dset_name_item *dname_array, int dataset_num, int *key_value_type);
@@ -28,32 +29,32 @@ int getDataType(hid_t dtid);
 /******************************************************************************
  * Open the HDF5 file, retrieve the attributes and read the data.
  ******************************************************************************/
-char* get_vpic_data_h5(int mpi_rank, int mpi_size, char *filename,
-        char *group_name, int weak_scale_test, int weak_scale_test_length,
-        int sort_key_only, int key_index, int *row_size, hsize_t *my_data_size,
-        hsize_t *rest_size, int *dataset_num, int *max_type_size,
-        int *key_value_type, dset_name_item *dname_array, hsize_t *my_offset)
+char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
+        int *row_size, hsize_t *my_data_size, hsize_t *rest_size,
+        int *dataset_num, int *max_type_size, int *key_value_type,
+        dset_name_item *dname_array, hsize_t *my_offset)
 {
     int is_all_dset;
 
     hid_t plist_id, file_id, gid;
     hsize_t dims_out[1];
 
-    open_file_group_h5(filename, group_name, &plist_id, &file_id, &gid);
-    /* whether to read all of the dataset. */
-    if (sort_key_only == 1) {
+    open_file_group_h5(config->filename, config->group_name,
+            &plist_id, &file_id, &gid);
+    // whether to read all of the dataset.
+    if (config->sort_key_only == 1) {
         is_all_dset = 0;
     } else {
         is_all_dset = 1;
     }
     *dataset_num = 0;
-    open_dataset_h5(gid, is_all_dset, key_index, dname_array,
+    open_dataset_h5(gid, is_all_dset, config->key_index, dname_array,
             dataset_num, max_type_size);
-    print_sorting_key_info(mpi_rank, sort_key_only, key_index,
+    print_sorting_key_info(mpi_rank, config->sort_key_only, config->key_index,
             dname_array, *dataset_num, key_value_type);
-    if (weak_scale_test == 1) {
+    if (config->weak_scale_test == 1) {
         partition_data_weak_test_h5(dname_array, mpi_rank, mpi_size,
-                weak_scale_test_length, dims_out, my_data_size,
+                config->weak_scale_test_length, dims_out, my_data_size,
                 rest_size, my_offset);
     } else {
         partition_data_h5(dname_array, mpi_rank, mpi_size, dims_out,

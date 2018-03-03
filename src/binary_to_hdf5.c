@@ -201,7 +201,6 @@ void binary_hdf5_multiple(int mpi_size, int mpi_rank, int ncpus,
 {
     int tstep;
     float q_m;
-    double t;
     FILE *fp;
     int *np_local; // number of particles in each PIC mpi_rank
     int *np_all;   // for all PIC mpi_ranks
@@ -599,8 +598,6 @@ void get_package_data_multi(int njobs, int offset, char *fpath_binary,
 {
     unsigned long long nptl_acc;
     int nptl;
-    float q_m;
-    double t;
     FILE *fp;
     char *data;
     long int offset_from_begining, offset_t;

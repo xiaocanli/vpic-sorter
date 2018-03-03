@@ -7,28 +7,22 @@
 #include <stdio.h>
 #include <math.h>
 #include <getopt.h>
+#include "configuration.h"
+
 void print_help();
 
 /******************************************************************************
- * Get the analysis configuration.
+ * Get the analysis configuration from command line arguments
  ******************************************************************************/
-int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
-        int *sort_key_only, int *skew_data, int *verbose, int *write_result,
-        int *collect_data, int *weak_scale_test, int *weak_scale_test_length,
-        int *local_sort_threaded, int *local_sort_threads_num, int *meta_data,
-        char *filename, char *group_name, char *filename_sorted,
-        char *filename_attribute, char *filename_meta, char *filepath,
-        char *species, int *tmax, int *tmin, int *tinterval, int *multi_tsteps,
-        int *ux_kindex, char *filename_traj, int *nptl_traj, float *ratio_emax,
-        int *tracking_traj, int *load_tracer_meta, int *is_recreate, int *nsteps,
-        int *reduced_tracer)
+int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
 {
     int c;
-    static const char *options="f:o:a:g:m:k:hsvewl:t:c:b:i:pu:qr";
+    static const char *options="a:b:c:ef:g:hi:k:l:m:o:pqrst:u:vw";
     static struct option long_options[] =
     {
         {"tmax", required_argument, 0, 'b'},
         {"tinterval", required_argument, 0, 'i'},
+        {"tstep", required_argument, 0, 11},
         {"filepath", required_argument, 0, 1},
         {"species", required_argument, 0, 2},
         {"filename_traj", required_argument, 0, 3},
@@ -46,124 +40,118 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
     extern char *optarg;
 
     /* Default values */
-    *key_index = 1;
-    *sort_key_only = 0;
-    *skew_data = 0;
-    *verbose = 0;
-    *write_result = 1;
-    *collect_data = 1;
-    *weak_scale_test = 0;
-    *weak_scale_test_length = 1000000;
-    *local_sort_threaded = 0;
-    *local_sort_threads_num = 16;
-    *meta_data = 0;
-    *multi_tsteps = 0;
-    *ux_kindex = 0;
-    *nptl_traj = 10;
-    *ratio_emax = 1;
-    *tracking_traj = 0;
-    *load_tracer_meta = 0;
-    *is_recreate = 0;    // Do not recreate a HDF5 file when it exists
-    *nsteps = 1;         // # steps are saved in each time interval
-    *reduced_tracer = 0; // original tracer
+    config->key_index = 1;
+    config->sort_key_only = 0;
+    config->skew_data = 0;
+    config->verbose = 0;
+    config->write_result = 1;
+    config->collect_data = 1;
+    config->weak_scale_test = 0;
+    config->weak_scale_test_length = 1000000;
+    config->local_sort_threaded = 0;
+    config->local_sort_threads_num = 16;
+    config->meta_data = 0;
+    config->multi_tsteps = 0;
+    config->ux_kindex = 0;
+    config->nptl_traj = 10;
+    config->ratio_emax = 1;
+    config->tracking_traj = 0;
+    config->load_tracer_meta = 0;
+    config->is_recreate = 0;    // Do not recreate a HDF5 file when it exists
+    config->nsteps = 1;         // # steps are saved in each time interval
+    config->reduced_tracer = 0; // original tracer
 
-    /* while ((c = getopt (argc, argv, options)) != -1){ */
     while ((c = getopt_long (argc, argv, options, long_options, &option_index)) != -1){
         switch (c){
-            case 'f':
-                strcpy(filename, optarg);
-                /* strncpy(filename, optarg, NAME_MAX); */
-                /* filename = strdup(optarg); */
-                break;
-            case 'o':
-                strcpy(filename_sorted, optarg);
-                /* strncpy(filename_sorted, optarg, NAME_MAX); */
-                /* filename_sorted = strdup(optarg); */
-                break;
             case 'a':
-                strcpy(filename_attribute, optarg);
-                /* strncpy(filename_attribute, optarg, NAME_MAX); */
-                /* filename_attribute = strdup(optarg); */
-                break;
-            case 'g':
-                strcpy(group_name, optarg);
-                /* strncpy(group_name, optarg, NAME_MAX); */
-                /* group_name = strdup(optarg); */
-                break;
-            case 'm':
-                *meta_data = 1;
-                strcpy(filename_meta, optarg);
-                break;
-            case 'k':
-                *key_index = atoi(optarg);
-                break;
-            case 's':
-                *skew_data = 1;
-                break;
-            case 'w':
-                *write_result = 0;
-                break;
-            case 'v':
-                *verbose = 1;
-                break;
-            case 'l':
-                *weak_scale_test = 1;
-                *weak_scale_test_length = atoi(optarg);
-                break;
-            case 'e':
-                *sort_key_only = 1;
-                break;
-            case 't':
-                *local_sort_threaded = 1;
-                *local_sort_threads_num = atoi(optarg);
-                break;
-            case 'c':
-                *collect_data = 0;
+                strcpy(config->filename_attribute, optarg);
                 break;
             case 'b':
-                *tmax = atoi(optarg);
+                config->tmax = atoi(optarg);
+                break;
+            case 'c':
+                config->collect_data = 0;
+                break;
+            case 'e':
+                config->sort_key_only = 1;
+                break;
+            case 'f':
+                strcpy(config->filename, optarg);
+                break;
+            case 'g':
+                strcpy(config->group_name, optarg);
                 break;
             case 'i':
-                *tinterval = atoi(optarg);
+                config->tinterval = atoi(optarg);
                 break;
-            case 1:
-                strcpy(filepath, optarg);
+            case 'k':
+                config->key_index = atoi(optarg);
                 break;
-            case 2:
-                strcpy(species, optarg);
+            case 'l':
+                config->weak_scale_test = 1;
+                config->weak_scale_test_length = atoi(optarg);
                 break;
-            case 3:
-                strcpy(filename_traj, optarg);
+            case 'm':
+                config->meta_data = 1;
+                strcpy(config->filename_meta, optarg);
                 break;
-            case 4:
-                *nptl_traj = atoi(optarg);
-                break;
-            case 5:
-                *ratio_emax = atof(optarg);
-                break;
-            case 6:
-                *tmin = atoi(optarg);
-                break;
-            case 7:
-                *is_recreate = atoi(optarg);
-                break;
-            case 8:
-                *nsteps = atoi(optarg);
-                break;
-            case 9:
-                *reduced_tracer = atoi(optarg);
-                break;
-            case 'r':
-                *load_tracer_meta = 1;
+            case 'o':
+                strcpy(config->filename_sorted, optarg);
                 break;
             case 'p':
-                *multi_tsteps = 1;
-                break;
-            case 'u':
-                *ux_kindex = atoi(optarg);
+                config->multi_tsteps = 1;
                 break;
             case 'q':
-                *tracking_traj = 1;
+                config->tracking_traj = 1;
+                break;
+            case 'r':
+                config->load_tracer_meta = 1;
+                break;
+            case 's':
+                config->skew_data = 1;
+                break;
+            case 't':
+                config->local_sort_threaded = 1;
+                config->local_sort_threads_num = atoi(optarg);
+                break;
+            case 'u':
+                config->ux_kindex = atoi(optarg);
+                break;
+            case 'v':
+                config->verbose = 1;
+                break;
+            case 'w':
+                config->write_result = 0;
+                break;
+            case 1:
+                strcpy(config->filepath, optarg);
+                break;
+            case 2:
+                strcpy(config->species, optarg);
+                break;
+            case 3:
+                strcpy(config->filename_traj, optarg);
+                break;
+            case 4:
+                config->nptl_traj = atoi(optarg);
+                break;
+            case 5:
+                config->ratio_emax = atof(optarg);
+                break;
+            case 6:
+                config->tmin = atoi(optarg);
+                break;
+            case 7:
+                config->is_recreate = atoi(optarg);
+                break;
+            case 8:
+                config->nsteps = atoi(optarg);
+                break;
+            case 9:
+                config->reduced_tracer = atoi(optarg);
+                break;
+            case 11:
+                config->tstep = atoi(optarg);
                 break;
             case 'h':
                 if (mpi_rank == 0) {
@@ -178,27 +166,34 @@ int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
     return 0;
 }
 
+
 /******************************************************************************
  * Print help information.
  ******************************************************************************/
 void print_help(){
     char *msg="Usage: %s [OPTION] \n\
-               -h help (--help)\n\
+               -a name of the attribute file to store sort table  \n\
+               -b the particle output maximum time step \n\
+               -c whether to collect sorted data \n\
+               -e only sort the key  \n\
                -f name of the file to sort \n\
                -g group path within HDF5 file to data set \n\
-               -o name of the file to store sorted results \n\
-               -a name of the attribute file to store sort table  \n\
-               -k the index key of the file \n\
-               -m the meta data is used determine particle position \n\
-               -s the data is in skew shape \n\
-               -w won't write the sorted data \n\
-               -b the particle output maximum time step \n\
+               -h help (--help)\n\
                -i the particle output time interval \n\
+               -k the index key of the file \n\
+               -l whether to do weak scale test \n\
+               -m whether to use meta data to determine particle position \n\
+               -o name of the file to store sorted results \n\
                -p run sorting for multiple time steps \n\
-               -u the key index of ux \n\
                -q tracking the trajectories of particles\n\
                -r whether to load tracer meta data \n\
+               -s the data is in skew shape \n\
+               -t whether to use threads in local sorting \n\
+               -u the key index of ux \n\
+               -v verbose  \n\
+               -w won't write the sorted data \n\
                --tmin the particle output minimum time step \n\
+               --tstep current time step \n\
                --filepath file path saving the particle tracing data \n\
                --species particle species for sorting \n\
                --filename_traj output file for particle trajectories \n\
@@ -207,8 +202,6 @@ void print_help(){
                --is_recreate whether to recreate a HDF5 file \n\
                --nsteps # of steps are save in each time interval \n\
                --reduced_tracer whether to use reduced tracer \n\
-               -e only sort the key  \n\
-               -v verbose  \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";
     fprintf(stdout, msg, "h5group-sorter");
 }

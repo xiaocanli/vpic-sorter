@@ -1,15 +1,41 @@
 #ifndef GET_CONFIGURATION_H
 #define GET_CONFIGURATION_H
 
-int get_configuration(int argc, char **argv, int mpi_rank, int *key_index,
-        int *sort_key_only, int *skew_data, int *verbose, int *write_result,
-        int *collect_data, int *weak_scale_test, int *weak_scale_test_length,
-        int *local_sort_threaded, int *local_sort_threads_num, int *meta_data,
-        char *filename, char *group_name, char *filename_sorted,
-        char *filename_attribute, char *filename_meta, char *filepath,
-        char *species, int *tmax, int *tmin, int *tinterval, int *multi_tsteps,
-        int *ux_kindex, char *filename_traj, int *nptl_traj, float *ratio_emax,
-        int *tracking_traj, int *load_tracer_meta, int *is_recreate, int *nsteps,
-        int *reduced_tracer);
+typedef struct {
+    int key_index;              // the index sorting key of the file
+    int sort_key_only;          // only sort the key
+    int skew_data;              // the data is in skew shape
+    int verbose;                // verbose diagnostics
+    int write_result;           // whether to write the sorted data
+    int collect_data;           // whether to collect sorted data
+    int weak_scale_test;        // whether to do a weak scale test
+    int weak_scale_test_length; // the data size for weak scale test
+    int local_sort_threaded;    // parallelize local sort using threads
+    int local_sort_threads_num; // number of threads in local sort
+    int meta_data;              // the meta data is used determine particle position
+    int tracking_traj;          // whether to track particle trajectories
+    int load_tracer_meta;       // whether to load tracer meta data
+    int is_recreate;            // whether to recreate a HDF5 file
+    int reduced_tracer;         // whether to use reduced tracer
+    int tmin;                   // the particle output minimum time step
+    int tmax;                   // the particle output maximum time step
+    int tstep;                  // current time step
+    int tinterval;              // the particle output time interval
+    int multi_tsteps;           // run sorting for multiple time steps
+    int nsteps;                 // # of steps are saved in each time interval
+    int ux_kindex;              // the key index of ux in the HDF5 file
+    int nptl_traj;              // number of particles for trajectory tracking
+    float ratio_emax;           // maximum energy of all particles / that of tracked ones
+    char *filename;             // HDF5 particle tracer file name
+    char *group_name;           // group name in the HDF5 file
+    char *filename_sorted;      // file name to store sorted results
+    char *filename_attribute;   // attribute file name to store sort table
+    char *filename_meta;        // file name storing the meta data
+    char *filepath;             // file directory saving the particle tracing data
+    char *species;              // particle species for sorting
+    char *filename_traj;        // output file for particle trajectories
+} config_t;
+
+int get_configuration(int argc, char **argv, int mpi_rank, config_t *config);
 
 #endif

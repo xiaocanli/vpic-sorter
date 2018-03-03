@@ -12,6 +12,7 @@
 #include "mpi_io.h"
 #include "get_data.h"
 #include "meta_data.h"
+#include "configuration.h"
 
 int max_type_size;
 int key_index;
@@ -293,12 +294,9 @@ void free_external_variable()
  * Master does slave's job, and also gather and sort pivots
  ******************************************************************************/
 char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int index_key,
-        int dset_num, int key_data_type, int verbosity, int omp_threaded,
-        int omp_threads_num, int skew_data, int collect_data, int write_result,
-        char *gname, char *fname_sorted, char *fname_attribute,
-        dset_name_item *dataname_array, unsigned long long *rsize,
-        int is_recreate)
+        int rest_size, int row_size, int type_size_max, int dset_num,
+        int key_data_type, dset_name_item *dataname_array,
+        config_t *config, unsigned long long *rsize)
 {
     char *all_samp, *temp_samp, *final_buff;
     char *pivots;
@@ -306,9 +304,10 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     int i;
     MPI_Status Stat;
 
-    set_external_variables(type_size_max, index_key, dset_num, key_data_type,
-            verbosity, omp_threaded, omp_threads_num, gname, fname_sorted,
-            fname_attribute, dataname_array);
+    set_external_variables(type_size_max, config->key_index, dset_num,
+            key_data_type, config->verbose, config->local_sort_threaded,
+            config->local_sort_threads_num, config->group_name,
+            config->filename_sorted, config->filename_attribute, dataname_array);
 
     /* All samples */
     all_samp  = malloc(mpi_size * mpi_size * row_size);
@@ -376,8 +375,8 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     //To sort and write sorted file
 
     final_buff = phase2(0, mpi_size, data, my_data_size, pivots, rest_size,
-            row_size, skew_data, collect_data, write_result, rsize,
-            is_recreate);
+            row_size, config->skew_data, config->collect_data,
+            config->write_result, rsize, config->is_recreate);
     free(pivots);
 
     free_external_variable();
@@ -389,22 +388,20 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
  * Do sort and sample
  ******************************************************************************/
 char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int index_key,
-        int dset_num, int key_data_type, int verbosity, int omp_threaded,
-        int omp_threads_num, int skew_data, int collect_data, int write_result,
-        char *gname, char *fname_sorted, char *fname_attribute,
-        dset_name_item *dataname_array, unsigned long long *rsize,
-        int is_recreate)
+        int rest_size, int row_size, int type_size_max, int dset_num,
+        int key_data_type, dset_name_item *dataname_array,
+        config_t *config, unsigned long long *rsize)
 {
     char  *pivots;
     char *final_buff;
-    set_external_variables(type_size_max, index_key, dset_num, key_data_type,
-            verbosity, omp_threaded, omp_threads_num, gname, fname_sorted,
-            fname_attribute, dataname_array);
+    set_external_variables(type_size_max, config->key_index, dset_num,
+            key_data_type, config->verbose, config->local_sort_threaded,
+            config->local_sort_threads_num, config->group_name,
+            config->filename_sorted, config->filename_attribute, dataname_array);
 
-    strcpy(group_name, gname);
-    strcpy(filename_sorted, fname_sorted);
-    strcpy(filename_attribute, fname_attribute);
+    strcpy(group_name, config->group_name);
+    strcpy(filename_sorted, config->filename_sorted);
+    strcpy(filename_attribute, config->filename_attribute);
     memcpy(dname_array, dataname_array, sizeof(dset_name_item));
 
     phase1(mpi_rank, mpi_size, data, my_data_size, NULL, row_size);
@@ -414,8 +411,8 @@ char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     MPI_Bcast(pivots, (mpi_size-1), OPIC_DATA_TYPE, 0, MPI_COMM_WORLD);
 
     final_buff = phase2(mpi_rank, mpi_size, data, my_data_size, pivots,
-            rest_size, row_size, skew_data, collect_data, write_result,
-            rsize, is_recreate);
+            rest_size, row_size, config->skew_data, config->collect_data,
+            config->write_result, rsize, config->is_recreate);
     free(pivots);
 
     free_external_variable();
@@ -950,34 +947,29 @@ void free_opic_data_type()
  * Read the particle data and sort the data using one key. This is only for
  * a single time step.
  ******************************************************************************/
-char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
-        int sort_key_only, int skew_data, int verbose, int write_result,
-        int collect_data, int weak_scale_test, int weak_scale_test_length,
-        int local_sort_threaded, int local_sort_threads_num, int meta_data,
-        int ux_kindex, char *filename, char *group_name, char *filename_sorted,
-        char *filename_attribute, char *filename_meta,
-        unsigned long long *rsize, int load_tracer_meta, int is_recreate) {
+char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
+        unsigned long long *rsize)
+{
     int max_type_size, dataset_num, key_value_type, row_size;
     hsize_t my_data_size, rest_size, my_offset;
     char *package_data, *final_buff;
     dset_name_item *dname_array;
     dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
-    package_data = get_vpic_data_h5(mpi_rank, mpi_size, filename, group_name,
-            weak_scale_test, weak_scale_test_length, sort_key_only, key_index,
-            &row_size, &my_data_size, &rest_size, &dataset_num, &max_type_size,
+    package_data = get_vpic_data_h5(mpi_rank, mpi_size, config, &row_size,
+            &my_data_size, &rest_size, &dataset_num, &max_type_size,
             &key_value_type, dname_array, &my_offset);
 
     /* Set the variables for retrieving the data with actual datatypes. */
-    set_variable_data(max_type_size, key_index, dataset_num, key_value_type,
-            ux_kindex);
+    set_variable_data(max_type_size, config->key_index, dataset_num,
+            key_value_type, config->ux_kindex);
 
     /* We have to use the meta data to calculate the particle position */
     /* But when using the binary output, the position is already calculated, */
     /* so we don't have to load the meta data. */
-    if (load_tracer_meta) {
+    if (config->load_tracer_meta) {
         calc_particle_positions(mpi_rank, my_offset, row_size, max_type_size,
-                my_data_size, filename_meta, group_name, dname_array,
-                dataset_num, package_data);
+                my_data_size, config->filename_meta, config->group_name,
+                dname_array, dataset_num, package_data);
     }
 
     /* master:  also do slave's job. In addition, it is responsible for samples and pivots */
@@ -988,18 +980,12 @@ char* sorting_single_tstep(int mpi_size, int mpi_rank, int key_index,
     if (mpi_rank==0){
         printf("Start master of parallel sorting ! \n");
         final_buff = master(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, key_index, dataset_num,
-                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
-                skew_data, collect_data, write_result, group_name,
-                filename_sorted, filename_attribute, dname_array, rsize,
-                is_recreate);
+                rest_size, row_size, max_type_size, dataset_num,
+                key_value_type, dname_array, config, rsize);
     }else{
         final_buff = slave(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, key_index, dataset_num,
-                key_value_type, verbose, local_sort_threaded, local_sort_threads_num,
-                skew_data, collect_data, write_result, group_name,
-                filename_sorted, filename_attribute, dname_array, rsize,
-                is_recreate);
+                rest_size, row_size, max_type_size, dataset_num,
+                key_value_type, dname_array, config, rsize);
     }
 
     free_opic_data_type();
