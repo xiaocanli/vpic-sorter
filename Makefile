@@ -1,11 +1,12 @@
-CC = mpicc
+# CC = mpicc
+CC = cc
 
 # change HDF5_DIR to the HDF5 install directory in your system
 HDF5_DIR = $(HDF5_ROOT)
 
-CFLAGS += -Wall -Iinclude -I$(HDF5_DIR)/include
+CFLAGS += -Wall -std=gnu99 -Iinclude -I$(HDF5_DIR)/include
 LDFLAGS += -Llib -L$(HDF5_DIR)/lib
-LDLIBS += -lm -ldl -lhdf5
+LDLIBS += -lm -ldl -lhdf5 -lz
 
 SRC_DIR = src
 OBJ_DIR = obj
