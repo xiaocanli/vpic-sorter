@@ -24,7 +24,7 @@ void read_dataset_h5(size_t row_count, int row_size, int max_type_size,
         hsize_t my_data_size, int mpi_rank, int mpi_size, int dataset_num,
         dset_name_item *dname_array, hsize_t my_offset, char *package_data);
 int getIndexDataType(hid_t did);
-int getDataType(hid_t dtid);
+hid_t getDataType(hid_t dtid);
 
 /******************************************************************************
  * Open the HDF5 file, retrieve the attributes and read the data.
@@ -201,7 +201,7 @@ int getIndexDataType(hid_t did)
     }
 }
 
-int getDataType(hid_t dtid)
+hid_t getDataType(hid_t dtid)
 {
     switch (H5Tget_class(dtid)){
         case H5T_INTEGER:

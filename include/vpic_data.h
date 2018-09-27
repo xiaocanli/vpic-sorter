@@ -5,7 +5,7 @@
 #include "configuration.h"
 
 //Find the type of dataset
-int getDataType (hid_t dtid);
+hid_t getDataType (hid_t dtid);
 int getIndexDataType(hid_t did);
 char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
         int *row_size, hsize_t *my_data_size, hsize_t *rest_size,
