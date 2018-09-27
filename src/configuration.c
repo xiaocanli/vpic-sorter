@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <getopt.h>
+#include "constants.h"
 #include "configuration.h"
 
 void print_help();
@@ -204,4 +205,73 @@ void print_help(){
                --reduced_tracer whether to use reduced tracer \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";
     fprintf(stdout, msg, "h5group-sorter");
+}
+
+/******************************************************************************
+ * Initialize configuration data
+ ******************************************************************************/
+void init_configuration(config_t *config)
+{
+    config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->species = (char *)malloc(16 * sizeof(char));
+}
+
+/******************************************************************************
+ * Free configuration data
+ ******************************************************************************/
+void free_configuration(config_t *config)
+{
+    free(config->filename);
+    free(config->group_name);
+    free(config->filename_sorted);
+    free(config->filename_attribute);
+    free(config->filename_meta);
+    free(config->filename_traj);
+    free(config->filepath);
+    free(config->species);
+    free(config);
+}
+
+/******************************************************************************
+ * Deep copy of the configuration data
+ ******************************************************************************/
+void copy_configuration(config_t *destination, config_t *source)
+{
+    destination->key_index = source->key_index;
+    destination->sort_key_only = source->sort_key_only;
+    destination->skew_data = source->skew_data;
+    destination->verbose = source->verbose;
+    destination->write_result = source->write_result;
+    destination->collect_data = source->collect_data;
+    destination->weak_scale_test = source->weak_scale_test;
+    destination->weak_scale_test_length = source->weak_scale_test_length;
+    destination->local_sort_threaded = source->local_sort_threaded;
+    destination->local_sort_threads_num = source->local_sort_threads_num;
+    destination->meta_data = source->meta_data;
+    destination->tracking_traj = source->tracking_traj;
+    destination->load_tracer_meta = source->load_tracer_meta;
+    destination->is_recreate = source->is_recreate;
+    destination->reduced_tracer = source->reduced_tracer;
+    destination->tmin = source->tmin;
+    destination->tmax = source->tmax;
+    destination->tstep = source->tstep;
+    destination->tinterval = source->tinterval;
+    destination->multi_tsteps = source->multi_tsteps;
+    destination->nsteps = source->nsteps;
+    destination->ux_kindex = source->ux_kindex;
+    destination->nptl_traj = source->nptl_traj;
+    strcpy(destination->filename, source->filename);
+    strcpy(destination->group_name, source->group_name);
+    strcpy(destination->filename_sorted, source->filename_sorted);
+    strcpy(destination->filename_attribute, source->filename_attribute);
+    strcpy(destination->filename_meta, source->filename_meta);
+    strcpy(destination->filename_traj, source->filename_traj);
+    strcpy(destination->filepath, source->filepath);
+    strcpy(destination->species, source->species);
 }

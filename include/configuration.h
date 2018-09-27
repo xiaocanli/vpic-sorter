@@ -38,4 +38,7 @@ typedef struct {
 
 int get_configuration(int argc, char **argv, int mpi_rank, config_t *config);
 
+void init_configuration(config_t *config);
+void free_configuration(config_t *config);
+void copy_configuration(config_t *destination, config_t *source);
 #endif

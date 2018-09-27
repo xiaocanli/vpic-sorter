@@ -23,8 +23,7 @@
 #include "tracked_particle.h"
 #include "particle_tags.h"
 
-void set_filenames(int tstep, config_t *config);
-
+void set_filenames(int tstep, config_t *config_init, config_t *config);
 void set_filenames_reduced(int tstep, char *filepath, char *species,
         char *filename, char *group_name, char *filename_sorted,
         char *filename_attribute, char *filename_meta);
@@ -47,22 +46,21 @@ int main(int argc, char **argv){
     t0 = MPI_Wtime();
 
     config_t *config = (config_t *)malloc(sizeof(config_t));
-    config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->filename_traj = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->filepath = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    config->species = (char *)malloc(16 * sizeof(char));
+    config_t *config_init = (config_t *)malloc(sizeof(config_t));
+    init_configuration(config);
+    init_configuration(config_init);
 
-    is_help = get_configuration(argc, argv, mpi_rank, config);
+    is_help = get_configuration(argc, argv, mpi_rank, config_init);
 
     // when -h flag is set to seek help of how to use this program
     if (is_help) {
+        free_configuration(config);
+        free_configuration(config_init);
         MPI_Finalize();
         return 1;
     }
+
+    copy_configuration(config, config_init);
 
     int ntf, mtf, tstep, nsteps_tot;
     mtf = config->tmin / config->tinterval;
@@ -126,7 +124,7 @@ int main(int argc, char **argv){
                         config->filename, config->group_name, config->filename_sorted,
                         config->filename_attribute, config->filename_meta);
             } else {
-                set_filenames(tstep, config);
+                set_filenames(tstep, config_init, config);
             }
             if (config->nsteps == 1) {
                 final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
@@ -160,7 +158,7 @@ int main(int argc, char **argv){
             printf("Output filename: %s\n", config->filename_sorted);
             printf("Meta data filename: %s\n", config->filename_meta);
         }
-        set_filenames(config->tstep, config);
+        set_filenames(config->tstep, config_init, config);
 
         final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
         if(config->collect_data == 1) {
@@ -195,15 +193,8 @@ int main(int argc, char **argv){
         printf("Overall time is [%f]s \n", (t1 - t0));
     }
 
-    free(config->filename);
-    free(config->group_name);
-    free(config->filename_sorted);
-    free(config->filename_attribute);
-    free(config->filename_meta);
-    free(config->filename_traj);
-    free(config->filepath);
-    free(config->species);
-    free(config);
+    free_configuration(config);
+    free_configuration(config_init);
 
     MPI_Finalize();
     return 0;
@@ -212,22 +203,22 @@ int main(int argc, char **argv){
 /******************************************************************************
  * Set filenames to include file directories
  ******************************************************************************/
-void set_filenames(int tstep, config_t *config)
+void set_filenames(int tstep, config_t *config_init, config_t *config)
 {
     char *tempname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
 
-    strcpy(tempname, config->filename);
+    strcpy(tempname, config_init->filename);
     snprintf(config->filename, MAX_FILENAME_LEN, "%s%s%d%s%s",
             config->filepath, "/T.", tstep, "/", tempname);
 
-    strcpy(tempname, config->filename_sorted);
+    strcpy(tempname, config_init->filename_sorted);
     snprintf(config->filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s",
             config->filepath, "/T.", tstep, "/", tempname);
 
     snprintf(config->filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
 
-    strcpy(tempname, config->filename_meta);
+    strcpy(tempname, config_init->filename_meta);
     snprintf(config->filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s",
             config->filepath, "/T.", tstep, "/", tempname);
     free(tempname);
