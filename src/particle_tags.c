@@ -8,7 +8,7 @@
 #include "hdf5.h"
 
 void read_data_h5(int n, hsize_t offset, char *fname, char *gname,
-        char *dname, int data_type, void *data);
+        char *dname, hid_t data_type, void *data);
 void get_ene_max(char *fname, char *gname, double *emax);
 void get_particle_offset(char *fname, char *gname, double emax,
         int ratio_emax, hsize_t *poffset);
@@ -247,7 +247,7 @@ void get_particle_offset(char *fname, char *gname, double emax,
  *  data: the read data from the file.
  ******************************************************************************/
 void read_data_h5(int n, hsize_t offset, char *fname, char *gname,
-        char *dname, int data_type, void *data)
+        char *dname, hid_t data_type, void *data)
 {
     const int rank = 1;
     hid_t file_id, group_id, dset_id;

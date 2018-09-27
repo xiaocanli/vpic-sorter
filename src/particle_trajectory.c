@@ -64,6 +64,9 @@ int main(int argc, char **argv){
     tstep = (ntf - 1) * tinterval;
     snprintf(filename, MAX_LEN, "%s%s%d%s%s%s", filepath, "T.",
             tstep, "/", particle, "_tracer_energy_sorted.h5p");
+    if (mpi_rank == 0) {
+        printf("Energy-sorted file: %s\n", filename);
+    }
     get_particle_tags(filename, tstep, ratio_emax, num_ptl, tags);
     qsort(tags, num_ptl, sizeof(int), CompareInt32Value);
     track_particles(mpi_rank, mpi_size, ntf, tinterval,
