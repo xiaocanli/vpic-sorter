@@ -58,6 +58,12 @@ int main(int argc, char **argv){
     ntf = 0;
     tinterval = 0;
     get_time_frame_info(&ntf, &tinterval, filepath);
+    ntf = 133;
+    tinterval = 80;
+    if (mpi_rank == 0) {
+        printf("Number of time frames: %d\n", ntf);
+        printf("Time interval between frames: %d\n", tinterval);
+    }
 
     tags = (int *)malloc(num_ptl * sizeof(int));
     char filename[MAX_LEN];

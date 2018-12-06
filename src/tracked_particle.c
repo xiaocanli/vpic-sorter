@@ -250,8 +250,10 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
     t0 = MPI_Wtime();
 
     tstep = 0;
+    /* snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "T.", */
+    /*         tstep, "/", particle, "_tracer_qtag_sorted.h5p"); */
     snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "T.",
-            tstep, "/", particle, "_tracer_qtag_sorted.h5p");
+            tstep, "/", particle, "_tracer_sorted.h5p");
     snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
     package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename,
             group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
@@ -276,20 +278,28 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
             my_data_size, 0, ntf, tags, num_ptl, tracked_particles);
     free(package_data);
 
-    for (i = 1; i < ntf; i++) {
-        tstep = i * tinterval;
-        snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "T.",
-                tstep, "/", particle, "_tracer_qtag_sorted.h5p");
-        snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
-        if (mpi_rank == 0) {
-            printf("Time Step %d\n", tstep);
+    /* for (i = 1; i < ntf; i++) { */
+    for (i = 1; i < 100; i++) {
+        if (i != 9 && i != 77 && i != 78 && i != 79 && i != 81 &&
+            i != 85 && i != 86 && i != 87) {
+            if (i < 89 || (i > 89 && i % 2 == 0)) {
+                tstep = i * tinterval;
+                /* snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "T.", */
+                /*         tstep, "/", particle, "_tracer_qtag_sorted.h5p"); */
+                snprintf(filename, MAX_FILENAME_LEN, "%s%s%d%s%s%s", filepath, "T.",
+                        tstep, "/", particle, "_tracer_sorted.h5p");
+                snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+                if (mpi_rank == 0) {
+                    printf("Time Step %d\n", tstep);
+                }
+                package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename,
+                        group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+                        &max_type_size, &key_value_type, dname_array);
+                get_tracked_particle_info(package_data, qindex, row_size,
+                        my_data_size, i, ntf, tags, num_ptl, tracked_particles);
+                free(package_data);
+            }
         }
-        package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename,
-                group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
-                &max_type_size, &key_value_type, dname_array);
-        get_tracked_particle_info(package_data, qindex, row_size,
-                my_data_size, i, ntf, tags, num_ptl, tracked_particles);
-        free(package_data);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);

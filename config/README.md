@@ -10,7 +10,7 @@ several time frames after running VPIC, but theses tracers are not sorted.
 Tracers can be HDF5 format or binary format. If it is binary format, we need
 to use `binary_hdf5.sh` to transfer the binary data to HDF5 format first. Then,
 1. Use `check_hdf5.sh` to check the dataset in the HDF5 file. You are going to
-the indices of `Ux` and `q` for sorting.
+use the indices of `Ux` and `q` for sorting.
     - The position each variable may not be the same as what `h5dump -H` gives.
 2. Use `ene_emf.sh` to sort the tracers. This will save the sorted tracers into
 new files as default.

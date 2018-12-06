@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Modify as you need
-export filepath=/net/scratch3/xiaocanli/reconnection/open3d-full/tracer_test/
+export filepath=/net/scratch3/guofan/trinity/turbulent-sheet3D-mixing-sigma100/tracer
 export particle=electron
-tstep=13
+tstep=0
 
 # May not need to change
 mpi_size=1
 fpath=$filepath/T.$tstep
-input_file=$fpath/${particle}_tracer_reduced_sorted.h5p
+input_file=$fpath/${particle}_tracer_sorted.h5p
 
 cd ../
 
