@@ -29,7 +29,7 @@ int skewed_data_partition(int mpi_rank, int mpi_size, char *data,
         int dest, double *cur_value, int *nelem, int *previous_ii);
 void check_load_balance(int mpi_rank, int mpi_size, unsigned long long rsize);
 char *exchange_data(int mpi_rank, int mpi_size, char *data, int *scount,
-        int64_t my_data_size, int row_size, int collect_data, int write_result, 
+        int64_t my_data_size, int row_size, int collect_data, int write_result,
         unsigned long long *rsize, int is_recreate);
 
 /******************************************************************************
@@ -176,8 +176,8 @@ int phase1(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
 /******************************************************************************
  * Phase 2 of the parallel sampling sorting
  * 1, Receive the pilots from the master
- * 2, Exchange the data 
- * 3, Sort the data again 
+ * 2, Exchange the data
+ * 3, Sort the data again
  ******************************************************************************/
 char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
         char *pivots, int rest_size, int row_size, int skew_data,
@@ -968,8 +968,7 @@ char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
     /* so we don't have to load the meta data. */
     if (config->load_tracer_meta) {
         calc_particle_positions(mpi_rank, my_offset, row_size, max_type_size,
-                my_data_size, config->filename_meta, config->group_name,
-                dname_array, dataset_num, package_data);
+                my_data_size, dname_array, dataset_num, config, package_data);
     }
 
     /* master:  also do slave's job. In addition, it is responsible for samples and pivots */

@@ -10,6 +10,7 @@
 #include "vpic_data.h"
 #include "get_data.h"
 #include "tracked_particle.h"
+#include "configuration.h"
 
 /******************************************************************************
  * Read data from HDF5 file using one process.
@@ -70,8 +71,7 @@ void read_data_serial_h5(hid_t dset_id, hsize_t my_offset, hsize_t my_data_size,
  * Open the file, group and datasets.
  *
  * Input:
- *  fname: file name
- *  gname: group_name
+ *  config: configuration data defined in configuration.h
  *
  * Output:
  *  file_id: the file handler.
@@ -80,20 +80,31 @@ void read_data_serial_h5(hid_t dset_id, hsize_t my_offset, hsize_t my_data_size,
  *  dims_out: the size of the data.
  *  dataset_num: the number of datasets.
  ******************************************************************************/
-void open_file_group_dset(char *fname, char *gname, hid_t *file_id,
-        hid_t *group_id, dset_name_item *dname_array, hsize_t *dims_out,
-        int *dataset_num)
+void open_file_group_dset(config_t *config, hid_t *file_id, hid_t *group_id,
+        dset_name_item *dname_array, hsize_t *dims_out, int *dataset_num)
 {
     int is_all_dset, max_type_size, key_index, np_local_index;
+    char *dname;
     hid_t dataspace;
-    *file_id = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
-    *group_id = H5Gopen(*file_id, gname, H5P_DEFAULT);
+    *file_id = H5Fopen(config->filename_meta, H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (config->single_h5) {
+        *group_id = H5Gopen(*file_id, config->meta_group_name, H5P_DEFAULT);
+    } else {
+        *group_id = H5Gopen(*file_id, config->group_name, H5P_DEFAULT);
+    }
     is_all_dset = 1;
     *dataset_num = 0;
     key_index = 0;
     open_dataset_h5(*group_id, is_all_dset, key_index, dname_array, dataset_num,
             &max_type_size);
-    np_local_index = get_dataset_index("np_local", dname_array, *dataset_num);
+    if (config->single_h5) {
+        dname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+        snprintf(dname, MAX_FILENAME_LEN, "%s%s%s", "np_local_", config->species, "_tracer");
+        np_local_index = get_dataset_index(dname, dname_array, *dataset_num);
+        free(dname);
+    } else {
+        np_local_index = get_dataset_index("np_local", dname_array, *dataset_num);
+    }
     dataspace = H5Dget_space(dname_array[np_local_index].did);
     H5Sget_simple_extent_dims(dataspace, dims_out, NULL);
     H5Sclose(dataspace);
@@ -147,21 +158,19 @@ void read_vpic_meta_data_h5(int dataset_num, hsize_t *dims_out,
  * Input:
  *  mpi_rank: the rank of current MPI process.
  *  my_offset: the offset from the beginning of the file in data numbers.
- *  filename_meta: the meta file name.
- *  group_name: the group name.
  *  my_data_size: the data size on current MPI process.
  *  row_size: the size of one record of all dataset.
  *  max_type_size the maximum data size of all datasets.
  *  dname_array: the HDF5 dataset information.
  *  dataset_num: number of datasets.
+ *  config: configuration data defined in configuration.h
  *
  * Input & output:
  *  package_data: the package includes all of the particle information.
  ******************************************************************************/
 void calc_particle_positions(int mpi_rank, hsize_t my_offset, int row_size,
-        int max_type_size, hsize_t my_data_size, char* filename_meta,
-        char *group_name, dset_name_item *dname_array, int dataset_num,
-        char *package_data)
+        int max_type_size, hsize_t my_data_size, dset_name_item *dname_array,
+        int dataset_num, config_t *config, char *package_data)
 {
     float cell_sizes[3];
     int grid_dims[3];
@@ -180,8 +189,8 @@ void calc_particle_positions(int mpi_rank, hsize_t my_offset, int row_size,
     if (mpi_rank == 0) {
         dname_array_meta = (dset_name_item *)malloc(MAX_DATASET_NUM *
                 sizeof(dset_name_item));
-        open_file_group_dset(filename_meta, group_name, &file_id, &group_id,
-                dname_array_meta, dims_out, &dataset_num_meta);
+        open_file_group_dset(config, &file_id, &group_id, dname_array_meta,
+                dims_out, &dataset_num_meta);
         dim = (int)dims_out[0];
         xindex = get_dataset_index("dX", dname_array, dataset_num);
         yindex = get_dataset_index("dY", dname_array, dataset_num);

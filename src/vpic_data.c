@@ -39,8 +39,13 @@ char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
     hid_t plist_id, file_id, gid;
     hsize_t dims_out[1];
 
-    open_file_group_h5(config->filename, config->group_name,
-            &plist_id, &file_id, &gid);
+    if (config->single_h5) {
+        open_file_group_h5(config->filename, config->subgroup_name,
+                &plist_id, &file_id, &gid);
+    } else {
+        open_file_group_h5(config->filename, config->group_name,
+                &plist_id, &file_id, &gid);
+    }
     // whether to read all of the dataset.
     if (config->sort_key_only == 1) {
         is_all_dset = 0;
