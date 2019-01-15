@@ -34,6 +34,9 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
         {"nsteps", required_argument, 0, 8},
         {"reduced_tracer", required_argument, 0, 9},
         {"load_tracer_meta", required_argument, 0, 'r'},
+        {"single_h5", required_argument, 0, 12},
+        {"subgroup_name", required_argument, 0, 13},
+        {"meta_group_name", required_argument, 0, 14},
         {0, 0, 0, 0},
     };
     /* getopt_long stores the option index here. */
@@ -61,6 +64,7 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
     config->is_recreate = 0;    // Do not recreate a HDF5 file when it exists
     config->nsteps = 1;         // # steps are saved in each time interval
     config->reduced_tracer = 0; // original tracer
+    config->single_h5 = 0;      // whether all tracers (electron + ion + ... + meta_data) are in a single file
 
     while ((c = getopt_long (argc, argv, options, long_options, &option_index)) != -1){
         switch (c){
@@ -154,6 +158,15 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
             case 11:
                 config->tstep = atoi(optarg);
                 break;
+            case 12:
+                config->single_h5 = atoi(optarg);
+                break;
+            case 13:
+                strcpy(config->subgroup_name, optarg);
+                break;
+            case 14:
+                strcpy(config->meta_group_name, optarg);
+                break;
             case 'h':
                 if (mpi_rank == 0) {
                     print_help();
@@ -203,6 +216,9 @@ void print_help(){
                --is_recreate whether to recreate a HDF5 file \n\
                --nsteps # of steps are save in each time interval \n\
                --reduced_tracer whether to use reduced tracer \n\
+               --single_h5 whether all tracers (electron + ion + ... + meta_data) are in a single file \n\
+               --subgroup_name sub-group name the tracer data if single_h5 == 1 \n\
+               --meta_group_name group name for the metadata if single_h5 == 1 \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";
     fprintf(stdout, msg, "h5group-sorter");
 }
@@ -214,6 +230,8 @@ void init_configuration(config_t *config)
 {
     config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->subgroup_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->meta_group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->filename_attribute = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->filename_meta = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
@@ -229,6 +247,8 @@ void free_configuration(config_t *config)
 {
     free(config->filename);
     free(config->group_name);
+    free(config->subgroup_name);
+    free(config->meta_group_name);
     free(config->filename_sorted);
     free(config->filename_attribute);
     free(config->filename_meta);
@@ -266,8 +286,11 @@ void copy_configuration(config_t *destination, config_t *source)
     destination->nsteps = source->nsteps;
     destination->ux_kindex = source->ux_kindex;
     destination->nptl_traj = source->nptl_traj;
+    destination->single_h5 = source->single_h5;
     strcpy(destination->filename, source->filename);
     strcpy(destination->group_name, source->group_name);
+    strcpy(destination->subgroup_name, source->subgroup_name);
+    strcpy(destination->meta_group_name, source->meta_group_name);
     strcpy(destination->filename_sorted, source->filename_sorted);
     strcpy(destination->filename_attribute, source->filename_attribute);
     strcpy(destination->filename_meta, source->filename_meta);
