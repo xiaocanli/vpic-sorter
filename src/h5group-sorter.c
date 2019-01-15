@@ -206,7 +206,17 @@ int main(int argc, char **argv){
 void set_filenames(int tstep, config_t *config_init, config_t *config)
 {
     char *tempname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+    if (config->single_h5) {
+        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+        snprintf(config->subgroup_name, MAX_FILENAME_LEN, "%s%d%s%s%s",
+                "/Step#", tstep, "/", config->species, "_tracer");
+        snprintf(config->meta_group_name, MAX_FILENAME_LEN, "%s%d%s",
+                "/Step#", tstep, "/grid_metadata");
+        printf("%s\n", config->subgroup_name);
+        printf("%s\n", config->meta_group_name);
+    } else {
+        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+    }
 
     strcpy(tempname, config_init->filename);
     snprintf(config->filename, MAX_FILENAME_LEN, "%s%s%d%s%s",
