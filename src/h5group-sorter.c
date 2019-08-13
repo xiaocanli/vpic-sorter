@@ -212,8 +212,6 @@ void set_filenames(int tstep, config_t *config_init, config_t *config)
                 "/Step#", tstep, "/", config->species, "_tracer");
         snprintf(config->meta_group_name, MAX_FILENAME_LEN, "%s%d%s",
                 "/Step#", tstep, "/grid_metadata");
-        printf("%s\n", config->subgroup_name);
-        printf("%s\n", config->meta_group_name);
     } else {
         snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
     }
