@@ -68,7 +68,7 @@ int main(int argc, char **argv){
     int row_size, dataset_num, max_type_size, key_value_type;
     char *tracked_particles, *tracked_particles_sum, *package_data;
     dset_name_item *dname_array;
-    hsize_t my_data_size, rest_size;
+    hsize_t my_data_size;
     char filename_initial[MAX_FILENAME_LEN];
     tstep = 0;
     snprintf(filename_initial, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
     dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
     // Just for getting the attributes of the HDF5 file
     package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename_initial,
-        config->group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+        config->group_name, &row_size, &my_data_size, &dataset_num,
         &max_type_size, &key_value_type, dname_array);
     free(package_data);
     qindex = get_dataset_index("q", dname_array, dataset_num);
@@ -137,7 +137,7 @@ int main(int argc, char **argv){
         set_filenames(tstep, config->filepath, config->species, config->filename,
                 config->group_name, config->filename_sorted, config->filename_attribute,
                 config->filename_meta, filename_reduced);
-        final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
+        final_buff = sorting_single_tstep(tstep, mpi_size, mpi_rank, config, &rsize);
         get_reduced_particle_info(final_buff, qindex, row_size, rsize, tags,
                 count, &nptl_reduce, tracked_particles);
         if(config->collect_data == 1) {

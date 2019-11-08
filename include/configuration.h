@@ -26,9 +26,11 @@ typedef struct {
     int ux_kindex;              // the key index of ux in the HDF5 file
     int nptl_traj;              // number of particles for trajectory tracking
     int single_h5;              // whether all tracers (electron + ion + ... + meta_data) are in a single file
+    int single_group;           // whether all steps in a tracer file are saved in the same group
     float ratio_emax;           // maximum energy of all particles / that of tracked ones
     char *filename;             // HDF5 particle tracer file name
     char *group_name;           // group name in the HDF5 file
+    char *group_name_output;    // group name in the output HDF5 file
     char *subgroup_name;        // sub-group name for the tracer data if single_h5 == 1
     char *meta_group_name;      // group name for the metadata if single_h5 == 1
     char *filename_sorted;      // file name to store sorted results

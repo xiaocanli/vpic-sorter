@@ -10,4 +10,7 @@ void read_vpic_meta_data_h5(int dataset_num, hsize_t *dims_out,
         dset_name_item *dname_array, float *cell_sizes, int *grid_dims,
         int *np_local, float *x0, float *y0, float *z0);
 
+// Get the number of tracer particles in each MPI rank
+int* get_np_local(config_t *config, int mpi_rank, int *nframes, int *pic_mpi_size);
+
 #endif

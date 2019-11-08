@@ -35,8 +35,10 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
         {"reduced_tracer", required_argument, 0, 9},
         {"load_tracer_meta", required_argument, 0, 'r'},
         {"single_h5", required_argument, 0, 12},
-        {"subgroup_name", required_argument, 0, 13},
-        {"meta_group_name", required_argument, 0, 14},
+        {"single_group", required_argument, 0, 13},
+        {"subgroup_name", required_argument, 0, 14},
+        {"meta_group_name", required_argument, 0, 15},
+        {"group_name_output", required_argument, 0, 16},
         {0, 0, 0, 0},
     };
     /* getopt_long stores the option index here. */
@@ -65,6 +67,7 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
     config->nsteps = 1;         // # steps are saved in each time interval
     config->reduced_tracer = 0; // original tracer
     config->single_h5 = 0;      // whether all tracers (electron + ion + ... + meta_data) are in a single file
+    config->single_group = 0;   // whether all steps in a tracer file are saved in the same group
 
     while ((c = getopt_long (argc, argv, options, long_options, &option_index)) != -1){
         switch (c){
@@ -162,10 +165,16 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
                 config->single_h5 = atoi(optarg);
                 break;
             case 13:
-                strcpy(config->subgroup_name, optarg);
+                config->single_group = atoi(optarg);
                 break;
             case 14:
+                strcpy(config->subgroup_name, optarg);
+                break;
+            case 15:
                 strcpy(config->meta_group_name, optarg);
+                break;
+            case 16:
+                strcpy(config->group_name_output, optarg);
                 break;
             case 'h':
                 if (mpi_rank == 0) {
@@ -217,8 +226,10 @@ void print_help(){
                --nsteps # of steps are save in each time interval \n\
                --reduced_tracer whether to use reduced tracer \n\
                --single_h5 whether all tracers (electron + ion + ... + meta_data) are in a single file \n\
+               --single_group whether all steps in a tracer file are saved in the same group \n\
                --subgroup_name sub-group name the tracer data if single_h5 == 1 \n\
                --meta_group_name group name for the metadata if single_h5 == 1 \n\
+               --group_name_output group name in the output HDF5 file \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";
     fprintf(stdout, msg, "h5group-sorter");
 }
@@ -230,6 +241,7 @@ void init_configuration(config_t *config)
 {
     config->filename = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    config->group_name_output = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->subgroup_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->meta_group_name = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
     config->filename_sorted = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
@@ -247,6 +259,7 @@ void free_configuration(config_t *config)
 {
     free(config->filename);
     free(config->group_name);
+    free(config->group_name_output);
     free(config->subgroup_name);
     free(config->meta_group_name);
     free(config->filename_sorted);
@@ -287,8 +300,10 @@ void copy_configuration(config_t *destination, config_t *source)
     destination->ux_kindex = source->ux_kindex;
     destination->nptl_traj = source->nptl_traj;
     destination->single_h5 = source->single_h5;
+    destination->single_group = source->single_group;
     strcpy(destination->filename, source->filename);
     strcpy(destination->group_name, source->group_name);
+    strcpy(destination->group_name_output, source->group_name_output);
     strcpy(destination->subgroup_name, source->subgroup_name);
     strcpy(destination->meta_group_name, source->meta_group_name);
     strcpy(destination->filename_sorted, source->filename_sorted);

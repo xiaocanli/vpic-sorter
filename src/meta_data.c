@@ -310,3 +310,52 @@ void calc_particle_positions(int mpi_rank, hsize_t my_offset, int row_size,
         H5Fclose(file_id);
     }
 }
+
+/******************************************************************************
+ * Get the number of tracer particles in each MPI rank
+ ******************************************************************************/
+int* get_np_local(config_t *config, int mpi_rank, int *nframes, int *pic_mpi_size)
+{
+  int data_sizes[2];
+  hid_t file_id, group_id, dset_id;
+  if (mpi_rank == 0) {
+    file_id = H5Fopen(config->filename_meta, H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (config->single_h5) {
+        group_id = H5Gopen(file_id, config->meta_group_name, H5P_DEFAULT);
+    } else {
+        group_id = H5Gopen(file_id, config->group_name, H5P_DEFAULT);
+    }
+    char *dname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
+    if (config->single_h5) {
+        snprintf(dname, MAX_FILENAME_LEN, "%s%s%s", "np_local_", config->species, "_tracer");
+    } else {
+        snprintf(dname, MAX_FILENAME_LEN, "%s", "np_local");
+    }
+    dset_id = H5Dopen(group_id, dname, H5P_DEFAULT);
+    free(dname);
+    hid_t filespace = H5Dget_space(dset_id);
+    hsize_t dset_dims[2];
+    H5Sget_simple_extent_dims(filespace, dset_dims, NULL);
+    H5Sclose(filespace);
+
+    data_sizes[0] = dset_dims[0];
+    data_sizes[1] = dset_dims[1];
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Bcast(data_sizes, 2, MPI_INT, 0, MPI_COMM_WORLD);
+  *nframes = data_sizes[0];
+  *pic_mpi_size = data_sizes[1];
+
+  int *np_local = (int *)malloc(sizeof(int) * data_sizes[0] * data_sizes[1]);
+  if (mpi_rank == 0) {
+    H5Dread(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, np_local);
+    H5Dclose(dset_id);
+    H5Gclose(group_id);
+    H5Fclose(file_id);
+  }
+  long long int ndata = data_sizes[0];
+  ndata *= data_sizes[1];
+  MPI_Bcast(np_local, ndata, MPI_INT, 0, MPI_COMM_WORLD);
+  return np_local;
+}

@@ -14,21 +14,18 @@ int phase1(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
 
 //Phase 2 of the parallel sampling sorting
 char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        char *pivots, int rest_size, int row_size, int skew_data,
-        int collect_data, int write_result, unsigned long long *rsize,
-        int is_recreate);
+        char *pivots, int row_size, int skew_data, int collect_data,
+        int write_result, unsigned long long *rsize, int is_recreate);
 
 // Master does slave's job, and also gather and sort pivots
 char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int dset_num,
-        int key_data_typ, dset_name_item *dataname_array,
-        config_t *config, unsigned long long *rsize);
+        int row_size, int type_size_max, int dset_num, int key_data_typ,
+        dset_name_item *dataname_array, config_t *config, unsigned long long *rsize);
 
 /*Do sort and sample*/
 char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int dset_num,
-        int key_data_type, dset_name_item *dataname_array,
-        config_t *config, unsigned long long *rsize);
+        int row_size, int type_size_max, int dset_num, int key_data_type,
+        dset_name_item *dataname_array, config_t *config, unsigned long long *rsize);
 
 //Sort the data based on the type
 int qsort_type(void *data, int64_t my_data_size, size_t row_size);
@@ -50,7 +47,7 @@ void create_opic_data_type(int row_size);
 void free_opic_data_type();
 double get_value_double(int index, char *row_data);
 
-char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
+char* sorting_single_tstep(int tstep, int mpi_size, int mpi_rank, config_t *config,
         unsigned long long *rsize);
 
 #endif

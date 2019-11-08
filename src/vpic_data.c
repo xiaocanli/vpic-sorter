@@ -15,11 +15,10 @@
 void print_sorting_key_info(int mpi_rank, int sort_key_only, int key_index,
         dset_name_item *dname_array, int dataset_num, int *key_value_type);
 void partition_data_h5(dset_name_item *dname_array, int mpi_rank, int mpi_size,
-        hsize_t *dims_out, hsize_t *my_data_size, hsize_t *rest_size,
-        hsize_t *my_offset);
+        hsize_t *dims_out, hsize_t *my_data_size, hsize_t *my_offset);
 void partition_data_weak_test_h5(dset_name_item *dname_array, int mpi_rank,
         int mpi_size, int weak_scale_test_length, hsize_t *dims_out,
-        hsize_t *my_data_size, hsize_t *rest_size, hsize_t *my_offset);
+        hsize_t *my_data_size, hsize_t *my_offset);
 void read_dataset_h5(size_t row_count, int row_size, int max_type_size,
         hsize_t my_data_size, int mpi_rank, int mpi_size, int dataset_num,
         dset_name_item *dname_array, hsize_t my_offset, char *package_data);
@@ -30,9 +29,9 @@ hid_t getDataType(hid_t dtid);
  * Open the HDF5 file, retrieve the attributes and read the data.
  ******************************************************************************/
 char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
-        int *row_size, hsize_t *my_data_size, hsize_t *rest_size,
-        int *dataset_num, int *max_type_size, int *key_value_type,
-        dset_name_item *dname_array, hsize_t *my_offset)
+        int *row_size, hsize_t *my_data_size, int *dataset_num,
+        int *max_type_size, int *key_value_type, dset_name_item *dname_array,
+        hsize_t *my_offset)
 {
     int is_all_dset;
 
@@ -59,11 +58,10 @@ char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
             dname_array, *dataset_num, key_value_type);
     if (config->weak_scale_test == 1) {
         partition_data_weak_test_h5(dname_array, mpi_rank, mpi_size,
-                config->weak_scale_test_length, dims_out, my_data_size,
-                rest_size, my_offset);
+                config->weak_scale_test_length, dims_out, my_data_size, my_offset);
     } else {
         partition_data_h5(dname_array, mpi_rank, mpi_size, dims_out,
-                my_data_size, rest_size, my_offset);
+                my_data_size, my_offset);
     }
 
     /* Compute the size of "package_data" */ 
@@ -111,7 +109,7 @@ char* get_vpic_data_h5(int mpi_rank, int mpi_size, config_t *config,
  ******************************************************************************/
 char* get_vpic_pure_data_h5(int mpi_rank, int mpi_size, char *filename,
         char *group_name, int *row_size, hsize_t *my_data_size,
-        hsize_t *rest_size, int *dataset_num, int *max_type_size,
+        int *dataset_num, int *max_type_size,
         int *key_value_type, dset_name_item *dname_array)
 {
     int is_all_dset, key_index;
@@ -129,7 +127,7 @@ char* get_vpic_pure_data_h5(int mpi_rank, int mpi_size, char *filename,
     open_dataset_h5(gid, is_all_dset, key_index, dname_array,
             dataset_num, max_type_size);
     partition_data_h5(dname_array, mpi_rank, mpi_size, dims_out,
-            my_data_size, rest_size, &my_offset);
+            my_data_size, &my_offset);
 
     /* Compute the size of "package_data" */ 
     /* Use max_type_size to ensure the memory alignment! */ 
@@ -356,16 +354,15 @@ void open_dataset_h5(hid_t gid, int is_all_dset, int key_index,
  * same size and shape.
  ******************************************************************************/
 void partition_data_h5(dset_name_item *dname_array, int mpi_rank, int mpi_size,
-        hsize_t *dims_out, hsize_t *my_data_size, hsize_t *rest_size,
-        hsize_t *my_offset)
+        hsize_t *dims_out, hsize_t *my_data_size, hsize_t *my_offset)
 {
     hid_t dataspace;
     dataspace = H5Dget_space(dname_array[0].did);
     H5Sget_simple_extent_dims(dataspace, dims_out, NULL);
     *my_data_size = 0;
-    *rest_size = dims_out[0] % mpi_size;
+    hsize_t rest_size = dims_out[0] % mpi_size;
     if (mpi_rank ==  (mpi_size - 1)){
-        *my_data_size = dims_out[0]/mpi_size + (*rest_size);
+        *my_data_size = dims_out[0]/mpi_size + rest_size;
     }else{
         *my_data_size = dims_out[0]/mpi_size;
     }
@@ -379,7 +376,7 @@ void partition_data_h5(dset_name_item *dname_array, int mpi_rank, int mpi_size,
  ******************************************************************************/
 void partition_data_weak_test_h5(dset_name_item *dname_array, int mpi_rank,
         int mpi_size, int weak_scale_test_length, hsize_t *dims_out,
-        hsize_t *my_data_size, hsize_t *rest_size, hsize_t *my_offset)
+        hsize_t *my_data_size, hsize_t *my_offset)
 {
     hid_t dataspace;
     dataspace = H5Dget_space(dname_array[0].did);
@@ -392,7 +389,6 @@ void partition_data_weak_test_h5(dset_name_item *dname_array, int mpi_rank,
         printf("data size %lld !\n", dims_out[0]);
         exit(-1);
     }
-    *rest_size = 0;
     *my_data_size = weak_scale_test_length;
     *my_offset = mpi_rank * (*my_data_size);
     H5Sclose(dataspace);

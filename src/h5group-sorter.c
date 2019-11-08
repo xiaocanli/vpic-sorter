@@ -63,13 +63,9 @@ int main(int argc, char **argv){
     copy_configuration(config, config_init);
 
     int ntf, mtf, tstep, nsteps_tot;
-    mtf = config->tmin / config->tinterval;
-    ntf = config->tmax / config->tinterval + 1;
-    if (config->nsteps == 1) {
-        nsteps_tot = ntf;
-    } else {
-        nsteps_tot = config->tmax;
-    }
+    mtf = config->tmin / (config->tinterval * config->nsteps);
+    ntf = config->tmax / (config->tinterval * config->nsteps) + 1;
+    nsteps_tot = config->tmax / config->tinterval + 1;
 
     // Get the particle tags from sorted-by-energy data of the last time frame,
     // and then sort the tags
@@ -77,15 +73,16 @@ int main(int argc, char **argv){
     int row_size, dataset_num, max_type_size, key_value_type;
     char *tracked_particles, *tracked_particles_sum, *package_data;
     dset_name_item *dname_array;
-    hsize_t my_data_size, rest_size;
+    hsize_t my_data_size;
     if (config->tracking_traj) {
         tags = (int *)malloc(config->nptl_traj * sizeof(int));
+        tstep = config->tstep;
         char filename_ene[MAX_FILENAME_LEN];
-        tstep = (ntf - 1) * config->tinterval;
+        int tinterval_file = config->tinterval * config->nsteps;
+        int tstep_file = (tstep / tinterval_file) * tinterval_file;
         snprintf(filename_ene, MAX_FILENAME_LEN, "%s%s%d%s%s%s",
-                config->filepath, "/T.", tstep, "/", config->species,
+                config->filepath, "/T.", tstep_file, "/", config->species,
                 "_tracer_energy_sorted.h5p");
-        if (config->nsteps != 1) tstep--;
         // get particle tags w.r.t some energy
         get_particle_tags(filename_ene, tstep, config->ratio_emax,
                 config->nptl_traj, tags);
@@ -97,7 +94,7 @@ int main(int argc, char **argv){
         snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
         dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
         package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename_ene,
-            config->group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+            config->group_name, &row_size, &my_data_size, &dataset_num,
             &max_type_size, &key_value_type, dname_array);
         free(package_data);
         qindex = get_dataset_index("q", dname_array, dataset_num);
@@ -117,50 +114,42 @@ int main(int argc, char **argv){
 
     if (config->multi_tsteps) {
         for (int i = mtf; i < ntf; i++) {
-            tstep = i * config->tinterval;
-            if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
-            if (config->reduced_tracer) {
-                set_filenames_reduced(tstep, config->filepath, config->species,
-                        config->filename, config->group_name, config->filename_sorted,
-                        config->filename_attribute, config->filename_meta);
-            } else {
-                set_filenames(tstep, config_init, config);
-            }
-            if (config->nsteps == 1) {
-                final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
-                if (config->tracking_traj) {
-                    get_tracked_particle_info(final_buff, qindex, row_size,
-                            rsize, i, ntf, tags, config->nptl_traj, tracked_particles);
-                }
-                if(config->collect_data == 1) {
-                    free(final_buff);
-                }
-            } else {
-                for (tstep = (i-1) * config->tinterval; tstep < i*config->tinterval; tstep++) {
-                    snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#",
-                            tstep);
-                    final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
-                    if (config->tracking_traj) {
-                        get_tracked_particle_info(final_buff, qindex, row_size,
-                                rsize, tstep, nsteps_tot, tags, config->nptl_traj,
-                                tracked_particles);
-                    }
-                    if(config->collect_data == 1) {
-                        free(final_buff);
-                    }
-                }
+            for (int j = 0; j < config->nsteps; j++) {
+              tstep = (i * config->nsteps + j) * config->tinterval;
+              if (tstep > config->tmax) break;
+              if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
+              if (config->reduced_tracer) {
+                  set_filenames_reduced(tstep, config->filepath, config->species,
+                          config->filename, config->group_name, config->filename_sorted,
+                          config->filename_attribute, config->filename_meta);
+              } else {
+                  set_filenames(tstep, config_init, config);
+              }
+              final_buff = sorting_single_tstep(tstep, mpi_size, mpi_rank, config, &rsize);
+              if (config->tracking_traj) {
+                  get_tracked_particle_info(final_buff, qindex, row_size,
+                          rsize, i * config->nsteps + j, nsteps_tot, tags,
+                          config->nptl_traj, tracked_particles);
+              }
+              if(config->collect_data == 1) {
+                  free(final_buff);
+              }
             }
         }
     } else {
+        set_filenames(config->tstep, config_init, config);
         if (mpi_rank == 0) {
             printf("Input filename: %s\n", config->filename);
             printf("Group name: %s\n", config->group_name);
             printf("Output filename: %s\n", config->filename_sorted);
             printf("Meta data filename: %s\n", config->filename_meta);
+            if (config->single_h5) {
+                printf("Sub groupname: %s\n", config->subgroup_name);
+                printf("Meta groupname: %s\n", config->meta_group_name);
+            }
         }
-        set_filenames(config->tstep, config_init, config);
 
-        final_buff = sorting_single_tstep(mpi_size, mpi_rank, config, &rsize);
+        final_buff = sorting_single_tstep(config->tstep, mpi_size, mpi_rank, config, &rsize);
         if(config->collect_data == 1) {
             free(final_buff);
         }
@@ -205,30 +194,42 @@ int main(int argc, char **argv){
  ******************************************************************************/
 void set_filenames(int tstep, config_t *config_init, config_t *config)
 {
+    // multiples steps can be in the same file
+    int tinterval_file = config->tinterval * config->nsteps;
+    int tstep_file = (tstep / tinterval_file) * tinterval_file;
     char *tempname = (char *)malloc(MAX_FILENAME_LEN * sizeof(char));
-    if (config->single_h5) {
-        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
-        snprintf(config->subgroup_name, MAX_FILENAME_LEN, "%s%d%s%s%s",
-                "/Step#", tstep, "/", config->species, "_tracer");
-        snprintf(config->meta_group_name, MAX_FILENAME_LEN, "%s%d%s",
-                "/Step#", tstep, "/grid_metadata");
+
+    int tstep_group;
+    if (config->single_group) {
+      tstep_group = tstep_file;
     } else {
-        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
+      tstep_group = tstep;
     }
+
+    if (config->single_h5) {
+        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep_group);
+        snprintf(config->subgroup_name, MAX_FILENAME_LEN, "%s%d%s%s%s",
+                "/Step#", tstep_group, "/", config->species, "_tracer");
+        snprintf(config->meta_group_name, MAX_FILENAME_LEN, "%s%d%s",
+                "/Step#", tstep_group, "/grid_metadata");
+    } else {
+        snprintf(config->group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep_group);
+    }
+    snprintf(config->group_name_output, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
 
     strcpy(tempname, config_init->filename);
     snprintf(config->filename, MAX_FILENAME_LEN, "%s%s%d%s%s",
-            config->filepath, "/T.", tstep, "/", tempname);
+            config->filepath, "/T.", tstep_file, "/", tempname);
 
     strcpy(tempname, config_init->filename_sorted);
     snprintf(config->filename_sorted, MAX_FILENAME_LEN, "%s%s%d%s%s",
-            config->filepath, "/T.", tstep, "/", tempname);
+            config->filepath, "/T.", tstep_file, "/", tempname);
 
     snprintf(config->filename_attribute, MAX_FILENAME_LEN, "%s", "attribute");
 
     strcpy(tempname, config_init->filename_meta);
     snprintf(config->filename_meta, MAX_FILENAME_LEN, "%s%s%d%s%s",
-            config->filepath, "/T.", tstep, "/", tempname);
+            config->filepath, "/T.", tstep_file, "/", tempname);
     free(tempname);
 }
 

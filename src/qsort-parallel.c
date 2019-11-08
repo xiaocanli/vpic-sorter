@@ -20,7 +20,7 @@ int dataset_num;
 int key_value_type;
 int verbose;
 int local_sort_threaded, local_sort_threads_num;
-char *group_name, *filename_sorted, *filename_attribute;
+char *group_name, *group_name_output, *filename_sorted, *filename_attribute;
 dset_name_item *dname_array;
 MPI_Datatype OPIC_DATA_TYPE;
 
@@ -180,12 +180,12 @@ int phase1(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
  * 3, Sort the data again
  ******************************************************************************/
 char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        char *pivots, int rest_size, int row_size, int skew_data,
+        char *pivots, int row_size, int skew_data,
         int collect_data, int write_result, unsigned long long *rsize,
         int is_recreate)
 {
     int dest, k;
-    double t1, t2; 
+    double t1, t2;
     int *scount;
     int ii, nelem, previous_ii;
     double dest_pivot, cur_value;
@@ -194,7 +194,7 @@ char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     scount = malloc(mpi_size * sizeof(int));
 
     MPI_Barrier(MPI_COMM_WORLD);
-    t1 = MPI_Wtime(); 	 
+    t1 = MPI_Wtime();
 
     for(k = 0; k < mpi_size; k++) {
         scount[k] = 0;
@@ -213,8 +213,8 @@ char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
         }
         nelem = 0;
 
-        //Does the data is skewed 
-        if(skew_data == 1){ 
+        //Does the data is skewed
+        if(skew_data == 1){
             skewed_data_partition(mpi_rank, mpi_size, data,
                     my_data_size, pivots, row_size, dest_pivot,
                     dest, &cur_value, &nelem, &previous_ii);
@@ -237,7 +237,7 @@ char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
             break;
     }
 
-    t2 = MPI_Wtime(); 	 
+    t2 = MPI_Wtime();
 
     if(mpi_rank == 0 || mpi_rank == (mpi_size -1)) {
         printf("Data partition ends, my_rank %d, ", mpi_rank);
@@ -258,7 +258,7 @@ char *phase2(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
  ******************************************************************************/
 void set_external_variables(int type_size_max, int index_key, int dset_num,
         int key_data_type, int verbosity, int omp_threaded, int omp_threads_num,
-        char *gname, char *fname_sorted, char *fname_attribute,
+        char *gname, char *gname_output, char *fname_sorted, char *fname_attribute,
         dset_name_item *dataname_array)
 {
     /* external variables */
@@ -271,6 +271,8 @@ void set_external_variables(int type_size_max, int index_key, int dset_num,
     local_sort_threads_num = omp_threads_num;
     group_name = (char *)malloc(NAME_MAX * sizeof(char));
     strcpy(group_name, gname);
+    group_name_output = (char *)malloc(NAME_MAX * sizeof(char));
+    strcpy(group_name_output, gname_output);
     filename_sorted = (char *)malloc(NAME_MAX * sizeof(char));
     strcpy(filename_sorted, fname_sorted);
     filename_attribute = (char *)malloc(NAME_MAX * sizeof(char));
@@ -285,6 +287,7 @@ void set_external_variables(int type_size_max, int index_key, int dset_num,
 void free_external_variable()
 {
     free(group_name);
+    free(group_name_output);
     free(filename_sorted);
     free(filename_attribute);
     free(dname_array);
@@ -294,20 +297,20 @@ void free_external_variable()
  * Master does slave's job, and also gather and sort pivots
  ******************************************************************************/
 char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int dset_num,
-        int key_data_type, dset_name_item *dataname_array,
-        config_t *config, unsigned long long *rsize)
+        int row_size, int type_size_max, int dset_num, int key_data_type,
+        dset_name_item *dataname_array, config_t *config, unsigned long long *rsize)
 {
     char *all_samp, *temp_samp, *final_buff;
     char *pivots;
-    double t1, t2; 
+    double t1, t2;
     int i;
     MPI_Status Stat;
 
     set_external_variables(type_size_max, config->key_index, dset_num,
             key_data_type, config->verbose, config->local_sort_threaded,
             config->local_sort_threads_num, config->group_name,
-            config->filename_sorted, config->filename_attribute, dataname_array);
+            config->group_name_output, config->filename_sorted,
+            config->filename_attribute, dataname_array);
 
     /* All samples */
     all_samp  = malloc(mpi_size * mpi_size * row_size);
@@ -315,7 +318,7 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     pivots    = malloc((mpi_size - 1)*row_size);
 
     t1 = MPI_Wtime();
-    printf("Phase1 is running .... \n"); 
+    printf("Phase1 is running .... \n");
     /* Sort its own data, and select samples */
     phase1(0, mpi_size, data, my_data_size, temp_samp, row_size);
     t2 = MPI_Wtime();
@@ -374,7 +377,7 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     printf("Phase2 is running... \n");
     //To sort and write sorted file
 
-    final_buff = phase2(0, mpi_size, data, my_data_size, pivots, rest_size,
+    final_buff = phase2(0, mpi_size, data, my_data_size, pivots,
             row_size, config->skew_data, config->collect_data,
             config->write_result, rsize, config->is_recreate);
     free(pivots);
@@ -388,7 +391,7 @@ char *master(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
  * Do sort and sample
  ******************************************************************************/
 char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
-        int rest_size, int row_size, int type_size_max, int dset_num,
+        int row_size, int type_size_max, int dset_num,
         int key_data_type, dset_name_item *dataname_array,
         config_t *config, unsigned long long *rsize)
 {
@@ -397,9 +400,9 @@ char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     set_external_variables(type_size_max, config->key_index, dset_num,
             key_data_type, config->verbose, config->local_sort_threaded,
             config->local_sort_threads_num, config->group_name,
-            config->filename_sorted, config->filename_attribute, dataname_array);
+            config->group_name_output, config->filename_sorted,
+            config->filename_attribute, dataname_array);
 
-    strcpy(group_name, config->group_name);
     strcpy(filename_sorted, config->filename_sorted);
     strcpy(filename_attribute, config->filename_attribute);
     memcpy(dname_array, dataname_array, sizeof(dset_name_item));
@@ -411,7 +414,7 @@ char *slave(int mpi_rank, int mpi_size, char *data, int64_t my_data_size,
     MPI_Bcast(pivots, (mpi_size-1), OPIC_DATA_TYPE, 0, MPI_COMM_WORLD);
 
     final_buff = phase2(mpi_rank, mpi_size, data, my_data_size, pivots,
-            rest_size, row_size, config->skew_data, config->collect_data,
+            row_size, config->skew_data, config->collect_data,
             config->write_result, rsize, config->is_recreate);
     free(pivots);
 
@@ -451,7 +454,7 @@ int pivots_replicated(char *pivots, int dest, int *dest_pivot_replicated_size,
         int *dest_pivot_replicated_rank, int mpi_size, int mpi_rank,
         int row_size, double *p_value_head){
     int replicated = 0;
-    int replicated_size = 1; //At least have one 
+    int replicated_size = 1; //At least have one
     double dest_pivot;
     if(dest != (mpi_size - 1)){
         dest_pivot= get_value_double(key_index, pivots + dest*row_size);
@@ -513,7 +516,7 @@ int pivots_replicated(char *pivots, int dest, int *dest_pivot_replicated_size,
 void rank_pivot(char *pivots, char *data,  int64_t my_data_size,
         int dest_pivot, int *rank_less, int *rank_equal, int row_size,
         int mpi_size, double p_value_head){
-    double dest_pivot_value;    
+    double dest_pivot_value;
     if(dest_pivot != (mpi_size - 1)){
         dest_pivot_value = get_value_double(key_index, pivots+dest_pivot*row_size);
     }else{
@@ -547,7 +550,7 @@ void rank_pivot(char *pivots, char *data,  int64_t my_data_size,
 /******************************************************************************
  * Merge sorted lists A and B into list A.  A must have dim >= m+n
  ******************************************************************************/
-void merge(char *A, char *B, int m, int n, int row_size) 
+void merge(char *A, char *B, int m, int n, int row_size)
 {
     int i = 0, j = 0, k = 0;
     int size = m + n;
@@ -581,7 +584,7 @@ void merge(char *A, char *B, int m, int n, int row_size)
         memcpy(C+k*row_size, B+j*row_size, (n-j)*row_size);
     }
 
-    //for( i=0; i<size; i++ ) 
+    //for( i=0; i<size; i++ )
     //  memcpy(A+i*row_size, C+i*row_size, row_size);
     memcpy(A, C, size * row_size);
     free(C);
@@ -593,19 +596,19 @@ void merge(char *A, char *B, int m, int n, int row_size)
 void arraymerge(char *a, int size, int *index, int N, int row_size)
 {
     /*
-    int i, thread_size; 
+    int i, thread_size;
 
     while(N>1){
         thread_size = size/N; //Check (size % N != 0)
-        for( i=0; i< N; i++ ){ 
-            index[i]=i * thread_size; 
+        for( i=0; i< N; i++ ){
+            index[i]=i * thread_size;
         }
         index[N]=size;
 
-#pragma omp parallel for private(i) 
+#pragma omp parallel for private(i)
 
         for( i=0; i<N; i+=2 ) {
-            merge(a+(index[i]*row_size), a+(index[i+1]*row_size), 
+            merge(a+(index[i]*row_size), a+(index[i+1]*row_size),
                     index[i+1]-index[i], index[i+2]-index[i+1], row_size);
         }
         N /= 2;
@@ -631,19 +634,19 @@ int openmp_sort(char *data, int size, int threads, size_t row_size)
     printf(" size of each thread %d \n", thread_size);
 
     for(i=0; i<threads; i++){
-    index[i]=i * thread_size; 
+    index[i]=i * thread_size;
     printf("%d ", index[i]);
     }
     index[threads]=size;
     printf("%d (index)\n", index[threads]);
 
 
-    // Main parallel sort loop 
+    // Main parallel sort loop
     double start = omp_get_wtime();
 
 #pragma omp parallel for private(i)
 
-    for(i=0; i<threads; i++){ 
+    for(i=0; i<threads; i++){
         //qsort(a+index[i], index[i+1]-index[i], sizeof(int), CmpInt);
         qsort_type(data+(index[i]*row_size), index[i+1]-index[i], row_size);
         //qsort(data+index[i], index[i+1]-index[i], row_size, CompareInt32Key);
@@ -652,8 +655,8 @@ int openmp_sort(char *data, int size, int threads, size_t row_size)
     //printf("Sorting is done ! \n");
     double middle = omp_get_wtime();
 
-    // Merge sorted array pieces 
-    if(threads>1 ) 
+    // Merge sorted array pieces
+    if(threads>1 )
     arraymerge(data, size, index, threads, row_size);
 
     double end = omp_get_wtime();
@@ -865,7 +868,7 @@ char *exchange_data(int mpi_rank, int mpi_size, char *data, int *scount,
     }
 
     if(collect_data == 1){
-        final_buff = malloc((*rsize) * row_size);  
+        final_buff = malloc((*rsize) * row_size);
         if(final_buff == NULL){
             printf("Allocation for final_buff fails !\n");
             exit(0);
@@ -873,7 +876,7 @@ char *exchange_data(int mpi_rank, int mpi_size, char *data, int *scount,
         MPI_Alltoallv(data, scount, sdisp, OPIC_DATA_TYPE, final_buff,
                 rcount, rdisp, OPIC_DATA_TYPE, MPI_COMM_WORLD);
     } else {
-        final_buff = malloc(row_size);  
+        final_buff = malloc(row_size);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -914,7 +917,7 @@ char *exchange_data(int mpi_rank, int mpi_size, char *data, int *scount,
     /* For test, we only consider the sorting time */
     if(write_result == 1) {
         write_result_file(mpi_rank, mpi_size, final_buff, *rsize, row_size,
-                dataset_num, max_type_size, key_index, group_name,
+                dataset_num, max_type_size, key_index, group_name_output,
                 filename_sorted, filename_attribute, dname_array, is_recreate);
     }
 
@@ -947,17 +950,111 @@ void free_opic_data_type()
  * Read the particle data and sort the data using one key. This is only for
  * a single time step.
  ******************************************************************************/
-char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
+char* sorting_single_tstep(int tstep, int mpi_size, int mpi_rank, config_t *config,
         unsigned long long *rsize)
 {
-    int max_type_size, dataset_num, key_value_type, row_size;
-    hsize_t my_data_size, rest_size, my_offset;
+    static int max_type_size, dataset_num, key_value_type, row_size;
+    static hsize_t my_data_size_multi, my_offset_multi;
+    static char *package_data_multi;
+    static int *np_local;
+    static long long int *np_local_end;
+    static int rank_s, rank_e;
+    static int nframes, pic_mpi_size;
+    static long long int *np_local_frames; // number of particles in each rank at each frame
+    static long long int *np_offset_frames; // particle offset in each rank at each frame
+    static dset_name_item *dname_array_local;
     char *package_data, *final_buff;
-    dset_name_item *dname_array;
-    dname_array = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
-    package_data = get_vpic_data_h5(mpi_rank, mpi_size, config, &row_size,
-            &my_data_size, &rest_size, &dataset_num, &max_type_size,
-            &key_value_type, dname_array, &my_offset);
+    hsize_t my_data_size, my_offset;
+    int file_interval = config->tinterval * config->nsteps;
+    if (config->single_group) {
+      if (tstep % file_interval == 0 || config->multi_tsteps == 0) {
+        // load all the data at the first time step in a group
+        dname_array_local = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
+        package_data_multi = get_vpic_data_h5(mpi_rank, mpi_size, config,
+            &row_size, &my_data_size_multi, &dataset_num, &max_type_size,
+            &key_value_type, dname_array_local, &my_offset_multi);
+        // load the number of tracers in each PIC MPI rank
+        np_local = get_np_local(config, mpi_rank, &nframes, &pic_mpi_size);
+        // end point of particle number
+        np_local_end = (long long int *)malloc(sizeof(long long int) * nframes * pic_mpi_size);
+        memset(np_local_end, 0, nframes * pic_mpi_size * sizeof(long long int));
+        long long int np_acc = 0;
+        for (int rank = 0; rank < pic_mpi_size; ++rank) {
+          for (int iframe = 0; iframe < nframes; ++iframe) {
+            int np = np_local[(long long int)iframe * pic_mpi_size + rank];
+            np_acc += np;
+            np_local_end[(long long int)rank * nframes + iframe] = np_acc - 1;
+            if ((np_acc - np) <= my_offset_multi && np_acc > my_offset_multi) {
+              rank_s = rank;
+            }
+            if ((np_acc - np) <= (my_offset_multi + my_data_size_multi - 1) &&
+                np_acc > (my_offset_multi + my_data_size_multi - 1)) {
+              rank_e = rank;
+            }
+          }
+        }
+        // number of particles in each rank at each frame
+        int nranks = rank_e - rank_s + 1;
+        np_local_frames = (long long int *)malloc(sizeof(long long int) * nranks * nframes);
+        memset(np_local_frames, 0, nranks * nframes * sizeof(long long int));
+        np_offset_frames = (long long int *)malloc(sizeof(long long int) * nranks * nframes);
+        memset(np_offset_frames, 0, nranks * nframes * sizeof(long long int));
+        long long int pstart, pend;
+        long long int my_end_multi = my_offset_multi + my_data_size_multi - 1;
+        long long int np_acc_frame = 0;
+        for (int rank = rank_s; rank <= rank_e; ++rank) {
+          for (int iframe = 0; iframe < nframes; ++iframe) {
+            pend = np_local_end[(long long int)rank * nframes + iframe];
+            pstart = pend + 1 - np_local[(long long int)iframe * pic_mpi_size + rank];
+            long long int pindex = (rank-rank_s)*nframes + iframe;
+            if (pstart >= my_offset_multi && pstart <= my_end_multi) { // starting point in range
+              if (pend <= my_end_multi) { // ending point in range
+                np_local_frames[pindex] = pend - pstart + 1;
+              } else { // ending point out of range
+                np_local_frames[pindex] = my_end_multi - pstart + 1;
+              }
+            } else if (pstart < my_offset_multi) { // starting point out of range
+              if (pend >= my_offset_multi && pend <= my_end_multi) { // starting point in range
+                np_local_frames[pindex] = pend - my_offset_multi + 1;
+              } else if (pend > my_end_multi) {
+                np_local_frames[pindex] = my_end_multi - my_offset_multi + 1;
+              }
+            } // pstart should not be larger than my_end_multi
+            np_offset_frames[pindex] = np_acc_frame;
+            np_acc_frame += np_local_frames[pindex];
+          } // iframe
+        } // rank
+      } // if (tstep % file_interval == 0)
+
+      // get package data for current time frame
+      size_t row_count = 0;
+      int iframe = (tstep % file_interval) / config->tinterval;
+      for (int rank = rank_s; rank <= rank_e; ++rank) {
+        long long int pindex = (rank-rank_s)*nframes + iframe;
+        row_count += np_local_frames[pindex];
+      }
+      package_data = (char *)malloc(row_count * row_size * sizeof(char));
+      my_data_size = 0;
+      for (int rank = rank_s; rank <= rank_e; ++rank) {
+        long long int pindex = (rank-rank_s)*nframes + iframe;
+        if (np_local_frames[pindex] > 0) {
+          memcpy(package_data+my_data_size*row_size,
+              package_data_multi+np_offset_frames[pindex]*row_size,
+              np_local_frames[pindex]*row_size);
+          my_data_size += np_local_frames[pindex];
+        }
+      }
+      long long total_particles, offset;
+      long long numparticles = my_data_size;
+      MPI_Allreduce(&numparticles, &total_particles, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Scan(&numparticles, &offset, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+      my_offset = offset - numparticles;
+    } else { // if (config->single_group)
+      dname_array_local = (dset_name_item *)malloc(MAX_DATASET_NUM * sizeof(dset_name_item));
+      package_data = get_vpic_data_h5(mpi_rank, mpi_size, config,
+          &row_size, &my_data_size, &dataset_num, &max_type_size,
+          &key_value_type, dname_array_local, &my_offset);
+    }
 
     /* Set the variables for retrieving the data with actual datatypes. */
     set_variable_data(max_type_size, config->key_index, dataset_num,
@@ -968,7 +1065,7 @@ char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
     /* so we don't have to load the meta data. */
     if (config->load_tracer_meta) {
         calc_particle_positions(mpi_rank, my_offset, row_size, max_type_size,
-                my_data_size, dname_array, dataset_num, config, package_data);
+                my_data_size, dname_array_local, dataset_num, config, package_data);
     }
 
     /* master:  also do slave's job. In addition, it is responsible for samples and pivots */
@@ -979,17 +1076,28 @@ char* sorting_single_tstep(int mpi_size, int mpi_rank, config_t *config,
     if (mpi_rank==0){
         printf("Start master of parallel sorting ! \n");
         final_buff = master(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, dataset_num,
-                key_value_type, dname_array, config, rsize);
+                row_size, max_type_size, dataset_num,
+                key_value_type, dname_array_local, config, rsize);
     }else{
         final_buff = slave(mpi_rank, mpi_size, package_data, my_data_size,
-                rest_size, row_size, max_type_size, dataset_num,
-                key_value_type, dname_array, config, rsize);
+                row_size, max_type_size, dataset_num,
+                key_value_type, dname_array_local, config, rsize);
     }
 
     free_opic_data_type();
 
-    free(dname_array);
+    if (config->single_group) {
+      if ((tstep + config->tinterval) % file_interval == 0 || config->multi_tsteps == 0) {
+        free(np_local);
+        free(np_local_frames);
+        free(np_offset_frames);
+        free(np_local_end);
+        free(package_data_multi);
+        free(dname_array_local);
+      }
+    } else {
+      free(dname_array_local);
+    }
     free(package_data);
     return final_buff;
 }

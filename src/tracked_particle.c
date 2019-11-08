@@ -235,7 +235,7 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
         char *filepath, int *tags, int num_ptl, char *filename_out, char *particle)
 {
     int i, row_size, dataset_num, max_type_size, key_value_type;
-    hsize_t my_data_size, rest_size;
+    hsize_t my_data_size;
     dset_name_item *dname_array;
     char *package_data;
     double t0, t1;
@@ -254,7 +254,7 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
             tstep, "/", particle, "_tracer_qtag_sorted.h5p");
     snprintf(group_name, MAX_FILENAME_LEN, "%s%d", "/Step#", tstep);
     package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename,
-            group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+            group_name, &row_size, &my_data_size, &dataset_num,
             &max_type_size, &key_value_type, dname_array);
 
     set_variable_data(max_type_size, 0, dataset_num, key_value_type, 0);
@@ -285,7 +285,7 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
             printf("Time Step %d\n", tstep);
         }
         package_data = get_vpic_pure_data_h5(mpi_rank, mpi_size, filename,
-                group_name, &row_size, &my_data_size, &rest_size, &dataset_num,
+                group_name, &row_size, &my_data_size, &dataset_num,
                 &max_type_size, &key_value_type, dname_array);
         get_tracked_particle_info(package_data, qindex, row_size,
                 my_data_size, i, ntf, tags, num_ptl, tracked_particles);
