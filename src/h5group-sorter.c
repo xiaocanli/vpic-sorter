@@ -37,6 +37,7 @@ int main(int argc, char **argv){
     int is_help;
     char *final_buff;
     unsigned long long rsize;
+    size_t ndata_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
@@ -100,13 +101,14 @@ int main(int argc, char **argv){
         qindex = get_dataset_index("q", dname_array, dataset_num);
         config->ux_kindex = get_dataset_index("Ux", dname_array, dataset_num);
 
-        tracked_particles = (char *)malloc(nsteps_tot * config->nptl_traj * row_size);
-        for (int j = 0; j < nsteps_tot*config->nptl_traj*row_size; j++) {
+        ndata_tracer = (size_t)nsteps_tot * config->nptl_traj * row_size;
+        tracked_particles = (char *)malloc(ndata_tracer);
+        for (int j = 0; j < ndata_tracer; j++) {
             tracked_particles[j] = 0;
         }
         if (mpi_rank == 0) {
-            tracked_particles_sum = (char *)malloc(nsteps_tot * config->nptl_traj * row_size);
-            for (int j = 0; j < nsteps_tot*config->nptl_traj*row_size; j++) {
+            tracked_particles_sum = (char *)malloc(ndata_tracer);
+            for (int j = 0; j < ndata_tracer; j++) {
                 tracked_particles_sum[j] = 0;
             }
         }
@@ -158,15 +160,14 @@ int main(int argc, char **argv){
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (config->tracking_traj) {
-        MPI_Reduce(tracked_particles, tracked_particles_sum,
-                nsteps_tot*config->nptl_traj*row_size, MPI_CHAR, MPI_SUM, 0,
-                MPI_COMM_WORLD);
+        MPI_Reduce(tracked_particles, tracked_particles_sum, ndata_tracer,
+            MPI_CHAR, MPI_SUM, 0, MPI_COMM_WORLD);
 
         /* Save the particle data. */
         if (mpi_rank == 0) {
             save_tracked_particles(config->filename_traj, tracked_particles_sum,
-                    nsteps_tot, config->nptl_traj, row_size, dataset_num, max_type_size,
-                    dname_array, tags);
+                nsteps_tot, config->nptl_traj, row_size, dataset_num,
+                max_type_size, dname_array, tags);
         }
         free(tracked_particles);
         if (mpi_rank == 0) {
