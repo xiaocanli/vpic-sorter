@@ -37,7 +37,6 @@ int main(int argc, char **argv){
     int is_help;
     char *final_buff;
     unsigned long long rsize;
-    size_t ndata_tracer;
 
     MPI_Comm comm = MPI_COMM_WORLD;
     MPI_Init(&argc, &argv);
@@ -75,6 +74,9 @@ int main(int argc, char **argv){
     char *tracked_particles, *tracked_particles_sum, *package_data;
     dset_name_item *dname_array;
     hsize_t my_data_size;
+    // In case tracer has too many steps, tracer data is chopped in blocks
+    size_t ndata_tracer, ndata_block;
+    int nblocks, block_size = 1000;
     if (config->tracking_traj) {
         tags = (int *)malloc(config->nptl_traj * sizeof(int));
         tstep = config->tstep;
@@ -101,42 +103,75 @@ int main(int argc, char **argv){
         qindex = get_dataset_index("q", dname_array, dataset_num);
         config->ux_kindex = get_dataset_index("Ux", dname_array, dataset_num);
 
+        nblocks = (nsteps_tot + block_size - 1) / block_size;
         ndata_tracer = (size_t)nsteps_tot * config->nptl_traj * row_size;
-        tracked_particles = (char *)malloc(ndata_tracer);
-        for (int j = 0; j < ndata_tracer; j++) {
+        ndata_block = (size_t)block_size * config->nptl_traj * row_size;
+        tracked_particles = (char *)malloc(ndata_block);
+        for (size_t j = 0; j < ndata_block; j++) {
             tracked_particles[j] = 0;
         }
         if (mpi_rank == 0) {
             tracked_particles_sum = (char *)malloc(ndata_tracer);
-            for (int j = 0; j < ndata_tracer; j++) {
+            for (size_t j = 0; j < ndata_tracer; j++) {
                 tracked_particles_sum[j] = 0;
             }
         }
     } // if (config->tracking_traj)
 
     if (config->multi_tsteps) {
+        int block_id = 0;
         for (int i = mtf; i < ntf; i++) {
-            for (int j = 0; j < config->nsteps; j++) {
-              tstep = (i * config->nsteps + j) * config->tinterval;
-              if (tstep > config->tmax) break;
-              if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
-              if (config->reduced_tracer) {
-                  set_filenames_reduced(tstep, config->filepath, config->species,
-                          config->filename, config->group_name, config->filename_sorted,
-                          config->filename_attribute, config->filename_meta);
-              } else {
-                  set_filenames(tstep, config_init, config);
-              }
-              final_buff = sorting_single_tstep(tstep, mpi_size, mpi_rank, config, &rsize);
-              if (config->tracking_traj) {
-                  get_tracked_particle_info(final_buff, qindex, row_size,
-                          rsize, i * config->nsteps + j, nsteps_tot, tags,
-                          config->nptl_traj, tracked_particles);
-              }
-              if(config->collect_data == 1) {
-                  free(final_buff);
-              }
+          for (int j = 0; j < config->nsteps; j++) {
+            int tframe = i * config->nsteps + j;
+            tstep = tframe * config->tinterval;
+            if (tstep > config->tmax) break;
+            if (mpi_rank == 0) printf("Time Step: %d\n", tstep);
+            if (config->reduced_tracer) {
+                set_filenames_reduced(tstep, config->filepath, config->species,
+                        config->filename, config->group_name, config->filename_sorted,
+                        config->filename_attribute, config->filename_meta);
+            } else {
+                set_filenames(tstep, config_init, config);
             }
+            final_buff = sorting_single_tstep(tstep, mpi_size, mpi_rank, config, &rsize);
+            if (config->tracking_traj) {
+                get_tracked_particle_info(final_buff, qindex, row_size,
+                        rsize, tframe % block_size, block_size, tags,
+                        config->nptl_traj, tracked_particles);
+            }
+            if(config->collect_data == 1) {
+                free(final_buff);
+            }
+            if (config->tracking_traj && tframe > mtf * config->nsteps &&
+                (((tframe + 1) % block_size) == 0 || tstep == config->tmax)) {
+              int data_size;
+              if (block_id == nblocks - 1) {
+                data_size = (int)(ndata_tracer - ndata_block * block_id);
+                char *tmp_particles = (char *)malloc(data_size);
+                for (int j = 0; j < data_size; j++) {
+                  tmp_particles[j] = 0;
+                }
+                for (int i = 0; i < config->nptl_traj; ++i) {
+                  memcpy(tmp_particles + (nsteps_tot % block_size) * row_size * i,
+                         tracked_particles + block_size * row_size * i,
+                         (nsteps_tot % block_size) * row_size);
+                }
+                MPI_Reduce(tmp_particles,
+                    tracked_particles_sum + ndata_block * block_id,
+                    data_size, MPI_CHAR, MPI_SUM, 0, MPI_COMM_WORLD);
+                free(tmp_particles);
+              } else {
+                data_size = ndata_block;
+                MPI_Reduce(tracked_particles,
+                    tracked_particles_sum + ndata_block * block_id,
+                    data_size, MPI_CHAR, MPI_SUM, 0, MPI_COMM_WORLD);
+                for (size_t j = 0; j < ndata_block; j++) {
+                  tracked_particles[j] = 0;
+                }
+              }
+              block_id++;
+            }
+          }
         }
     } else {
         set_filenames(config->tstep, config_init, config);
@@ -159,15 +194,11 @@ int main(int argc, char **argv){
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if (config->tracking_traj) {
-        MPI_Reduce(tracked_particles, tracked_particles_sum, ndata_tracer,
-            MPI_CHAR, MPI_SUM, 0, MPI_COMM_WORLD);
-
-        /* Save the particle data. */
+    if (config->tracking_traj) { // Save the particle data
         if (mpi_rank == 0) {
             save_tracked_particles(config->filename_traj, tracked_particles_sum,
                 nsteps_tot, config->nptl_traj, row_size, dataset_num,
-                max_type_size, dname_array, tags);
+                max_type_size, dname_array, tags, nblocks, block_size);
         }
         free(tracked_particles);
         if (mpi_rank == 0) {

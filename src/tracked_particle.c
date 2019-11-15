@@ -189,14 +189,14 @@ void write_data_serial_h5(hid_t file_id, char *gname, int dataset_num, int rank,
  ******************************************************************************/
 void save_tracked_particles(char *filename_out, char *tracked_particles,
         int ntf, int num_ptl, int row_size, int dataset_num, int max_type_size,
-        dset_name_item *dname_array, int *tags)
+        dset_name_item *dname_array, int *tags, int nblocks, int block_size)
 {
     hid_t file_id;
     herr_t status;
     hsize_t dimsf[1], count[1], offset[1];
     char *temp_data;
     char gname[MAX_FILENAME_LEN];
-    int i, rank;
+    int rank;
     temp_data = (char *)malloc(ntf * row_size);
     file_id = H5Fcreate(filename_out, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     
@@ -204,11 +204,23 @@ void save_tracked_particles(char *filename_out, char *tracked_particles,
     dimsf[0] = ntf;
     count[0] = ntf;
     offset[0] = 0;
-    for (i = 0; i < num_ptl; i++) {
-        memcpy(temp_data, tracked_particles + i*row_size*ntf, row_size*ntf);
-        snprintf(gname, MAX_FILENAME_LEN, "%s%d", "/Particle#", tags[i]);
-        write_data_serial_h5(file_id, gname, dataset_num, rank, dname_array,
-                dimsf, count, offset, ntf, row_size, max_type_size, temp_data);
+    size_t ndata_block = (size_t)block_size * num_ptl * row_size;
+    int nframes, offset_tracer;
+    for (int i = 0; i < num_ptl; i++) {
+      for (int j = 0; j < nblocks; j++) {
+        offset_tracer = block_size * j;
+        if (j == nblocks - 1) {
+          nframes = ntf - (block_size * j);
+        } else {
+          nframes = block_size;
+        }
+        size_t doffset = ndata_block*j + (size_t)i*row_size*nframes;
+        memcpy(temp_data+offset_tracer*row_size,
+            tracked_particles+doffset, row_size*nframes);
+      }
+      snprintf(gname, MAX_FILENAME_LEN, "%s%d", "/Particle#", tags[i]);
+      write_data_serial_h5(file_id, gname, dataset_num, rank, dname_array,
+              dimsf, count, offset, ntf, row_size, max_type_size, temp_data);
     }
 
     status = H5Fclose(file_id);
@@ -300,7 +312,7 @@ void track_particles(int mpi_rank, int mpi_size, int ntf, int tinterval,
     /* Save the particle data. */
     if (mpi_rank == 0) {
         save_tracked_particles(filename_out, tracked_particles_sum, ntf, num_ptl,
-                row_size, dataset_num, max_type_size, dname_array, tags);
+                row_size, dataset_num, max_type_size, dname_array, tags, 1, ntf);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
