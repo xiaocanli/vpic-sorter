@@ -301,6 +301,7 @@ void copy_configuration(config_t *destination, config_t *source)
     destination->nptl_traj = source->nptl_traj;
     destination->single_h5 = source->single_h5;
     destination->single_group = source->single_group;
+    destination->ratio_emax = source->ratio_emax;
     strcpy(destination->filename, source->filename);
     strcpy(destination->group_name, source->group_name);
     strcpy(destination->group_name_output, source->group_name_output);
