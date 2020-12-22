@@ -151,10 +151,11 @@ int main(int argc, char **argv){
                 for (int j = 0; j < data_size; j++) {
                   tmp_particles[j] = 0;
                 }
+                int nsteps_final_block = nsteps_tot - block_id * block_size;
                 for (int i = 0; i < config->nptl_traj; ++i) {
-                  memcpy(tmp_particles + (nsteps_tot % block_size) * row_size * i,
+                  memcpy(tmp_particles + nsteps_final_block * row_size * i,
                          tracked_particles + block_size * row_size * i,
-                         (nsteps_tot % block_size) * row_size);
+                         nsteps_final_block * row_size);
                 }
                 MPI_Reduce(tmp_particles,
                     tracked_particles_sum + ndata_block * block_id,
