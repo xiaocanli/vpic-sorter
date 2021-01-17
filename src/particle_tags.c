@@ -11,7 +11,7 @@ void read_data_h5(int n, hsize_t offset, char *fname, char *gname,
         char *dname, hid_t data_type, void *data);
 void get_ene_max(char *fname, char *gname, double *emax);
 void get_particle_offset(char *fname, char *gname, double emax,
-        int ratio_emax, hsize_t *poffset);
+        float ratio_emax, hsize_t *poffset);
 
 /******************************************************************************
  * Get the number of digits of an integer.
@@ -165,7 +165,7 @@ void get_ene_max(char *fname, char *gname, double *emax)
  *  poffset: the offset of the target particle from the end of the file.
  ******************************************************************************/
 void get_particle_offset(char *fname, char *gname, double emax,
-        int ratio_emax, hsize_t *poffset)
+        float ratio_emax, hsize_t *poffset)
 {
     float *ux, *uy, *uz;
     double ene, target_ene;
