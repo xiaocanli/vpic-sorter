@@ -4,12 +4,13 @@
 #include <float.h>
 #include <stdio.h>
 #include "constants.h"
+#include "get_data.h"
 
-int max_type_size;
-int key_index;
-int dataset_num;
-int key_value_type;
-int ux_key_index;
+static int max_type_size;
+static int key_index;
+static int dataset_num;
+static int key_value_type;
+static int ux_key_index;
 
 /******************************************************************************
  * Set the external variables

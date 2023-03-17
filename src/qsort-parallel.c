@@ -14,15 +14,15 @@
 #include "meta_data.h"
 #include "configuration.h"
 
-int max_type_size;
-int key_index;
-int dataset_num;
-int key_value_type;
-int verbose;
-int local_sort_threaded, local_sort_threads_num;
-char *group_name, *group_name_output, *filename_sorted, *filename_attribute;
-dset_name_item *dname_array;
-MPI_Datatype OPIC_DATA_TYPE;
+static int max_type_size;
+static int key_index;
+static int dataset_num;
+static int key_value_type;
+static int verbose;
+static int local_sort_threaded, local_sort_threads_num;
+static char *group_name, *group_name_output, *filename_sorted, *filename_attribute;
+static dset_name_item *dname_array;
+static MPI_Datatype OPIC_DATA_TYPE;
 
 int skewed_data_partition(int mpi_rank, int mpi_size, char *data,
         int64_t my_data_size, char *pivots, int row_size, double dest_pivot,
@@ -1087,7 +1087,8 @@ char* sorting_single_tstep(int tstep, int mpi_size, int mpi_rank, config_t *conf
     free_opic_data_type();
 
     if (config->single_group) {
-      if ((tstep + config->tinterval) % file_interval == 0 || config->multi_tsteps == 0) {
+      if ((tstep + config->tinterval * config->reduce_factor_time) % file_interval == 0
+              || config->multi_tsteps == 0) {
         free(np_local);
         free(np_local_frames);
         free(np_offset_frames);
