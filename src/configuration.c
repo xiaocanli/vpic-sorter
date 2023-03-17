@@ -39,6 +39,8 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
         {"subgroup_name", required_argument, 0, 14},
         {"meta_group_name", required_argument, 0, 15},
         {"group_name_output", required_argument, 0, 16},
+        {"reduce_tracer_time", required_argument, 0, 17},
+        {"reduce_factor_time", required_argument, 0, 18},
         {0, 0, 0, 0},
     };
     /* getopt_long stores the option index here. */
@@ -68,6 +70,8 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
     config->reduced_tracer = 0; // original tracer
     config->single_h5 = 0;      // whether all tracers (electron + ion + ... + meta_data) are in a single file
     config->single_group = 0;   // whether all steps in a tracer file are saved in the same group
+    config->reduce_tracer_time = 0; // whether to reduce the time resolution
+    config->reduce_factor_time = 1; // factor for reducing the time resolution
 
     while ((c = getopt_long (argc, argv, options, long_options, &option_index)) != -1){
         switch (c){
@@ -176,6 +180,12 @@ int get_configuration(int argc, char **argv, int mpi_rank, config_t *config)
             case 16:
                 strcpy(config->group_name_output, optarg);
                 break;
+            case 17:
+                config->reduce_tracer_time = atoi(optarg);
+                break;
+            case 18:
+                config->reduce_factor_time = atoi(optarg);
+                break;
             case 'h':
                 if (mpi_rank == 0) {
                     print_help();
@@ -230,6 +240,8 @@ void print_help(){
                --subgroup_name sub-group name the tracer data if single_h5 == 1 \n\
                --meta_group_name group name for the metadata if single_h5 == 1 \n\
                --group_name_output group name in the output HDF5 file \n\
+               --reduce_tracer_time whether to reduce the time resolution \n\
+               --reduce_factor_time factor for reducing the time resolution \n\
                example: ./h5group-sorter -f testf.h5p  -g /testg  -o testg-sorted.h5p -a testf.attribute -k 0 \n";
     fprintf(stdout, msg, "h5group-sorter");
 }
@@ -301,6 +313,8 @@ void copy_configuration(config_t *destination, config_t *source)
     destination->nptl_traj = source->nptl_traj;
     destination->single_h5 = source->single_h5;
     destination->single_group = source->single_group;
+    destination->reduce_tracer_time = source->reduce_tracer_time;
+    destination->reduce_factor_time = source->reduce_factor_time;
     destination->ratio_emax = source->ratio_emax;
     strcpy(destination->filename, source->filename);
     strcpy(destination->group_name, source->group_name);

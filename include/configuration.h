@@ -27,6 +27,8 @@ typedef struct {
     int nptl_traj;              // number of particles for trajectory tracking
     int single_h5;              // whether all tracers (electron + ion + ... + meta_data) are in a single file
     int single_group;           // whether all steps in a tracer file are saved in the same group
+    int reduce_tracer_time;     // whether to reduce the time resolution
+    int reduce_factor_time;     // factor for reducing the time resolution
     float ratio_emax;           // maximum energy of all particles / that of tracked ones
     char *filename;             // HDF5 particle tracer file name
     char *group_name;           // group name in the HDF5 file
